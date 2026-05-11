@@ -92,14 +92,6 @@ export default function OrderPage() {
     )
   }
 
-  if (error) {
-    return (
-      <div className="flex h-full fade-in items-center justify-center">
-        <p className="text-red-500 text-sm">{error}</p>
-      </div>
-    )
-  }
-
   return (
     <div className="flex h-full fade-in">
       {/* Left: Menu */}
