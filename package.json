@@ -1,0 +1,14 @@
+{
+  "name": "staffos",
+  "private": true,
+  "version": "0.1.0",
+  "description": "StaffOS — F&B Management System (monorepo)",
+  "scripts": {
+    "dev:fe": "cd frontend && npm run dev",
+    "dev:be": "cd backend && npm run dev",
+    "build:fe": "cd frontend && npm run build",
+    "build:be": "echo 'No build step for backend'",
+    "db:migrate": "cd backend && npm run db:migrate",
+    "db:seed": "cd backend && npm run db:seed"
+  }
+}
