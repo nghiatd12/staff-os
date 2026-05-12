@@ -3,14 +3,18 @@ import { QRCodeSVG } from 'qrcode.react'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
-import { QrCode, Printer, Copy, Smartphone, CheckCircle2 } from '@/components/ui/Icon'
+import { QrCode, Printer, Copy, Smartphone, CheckCircle2, ExternalLink } from '@/components/ui/Icon'
 import { api } from '@/lib/api'
+import { getUser } from '@/lib/auth'
 
-const STORE_SLUG = 'bia-garden-q7'
-const BASE_URL = 'https://staffos.vn'
-
-function getTableUrl(tableId) {
-  return `${BASE_URL}/${STORE_SLUG}/ban/${tableId}`
+/**
+ * Tạo URL QR menu cho khách.
+ * Dùng VITE_APP_URL nếu có, fallback về origin hiện tại.
+ * Path: /menu/:slug/ban/:tableId
+ */
+function getTableUrl(slug, tableId) {
+  const base = import.meta.env.VITE_APP_URL || window.location.origin
+  return `${base}/menu/${slug}/ban/${tableId}`
 }
 
 export default function QrMenuPage() {
@@ -18,27 +22,38 @@ export default function QrMenuPage() {
   const [loading, setLoading] = useState(true)
   const [copiedId, setCopiedId] = useState(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [previewTable, setPreviewTable] = useState(null)
+
+  // Lấy slug từ user đã lưu trong localStorage
+  const user = getUser()
+  const storeSlug = user?.store_slug || user?.storeSlug || 'my-store'
+  const storeName = user?.store || 'Quán của bạn'
 
   useEffect(() => {
     api.get('/tables')
-      .then((data) => {
-        setTables(data.tables || [])
-      })
-      .catch(() => {
-        setTables([])
-      })
+      .then((data) => setTables(data.tables || []))
+      .catch(() => setTables([]))
       .finally(() => setLoading(false))
   }, [])
 
   const handleCopy = (table) => {
-    const url = getTableUrl(table.id)
+    const url = getTableUrl(storeSlug, table.id)
     navigator.clipboard?.writeText(url)
     setCopiedId(table.id)
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  const handlePreview = (table) => {
+    setPreviewTable(table)
+    setShowPreview(true)
+  }
+
+  const handleOpenMenu = (table) => {
+    const url = getTableUrl(storeSlug, table.id)
+    window.open(url, '_blank')
+  }
+
   const activeCount = tables.length
-  const totalScans = 0 // No scan data from API
 
   if (loading) {
     return (
@@ -80,13 +95,13 @@ export default function QrMenuPage() {
             <Smartphone size={20} className="text-blue-600" />
           </div>
           <div>
-            <p className="text-lg font-bold text-slate-800">{totalScans}</p>
-            <p className="text-[11px] text-slate-400">Tổng lượt quét</p>
+            <p className="text-lg font-bold text-slate-800">Live</p>
+            <p className="text-[11px] text-slate-400">Khách tự gọi được</p>
           </div>
         </Card>
         <Card className="p-4">
-          <p className="text-[11px] text-slate-400 mb-1">URL cửa hàng</p>
-          <p className="text-sm font-medium text-emerald-700 truncate">{BASE_URL}/{STORE_SLUG}/ban/...</p>
+          <p className="text-[11px] text-slate-400 mb-1">Slug quán</p>
+          <p className="text-sm font-medium text-emerald-700 truncate">{storeSlug}</p>
         </Card>
       </div>
 
@@ -100,17 +115,17 @@ export default function QrMenuPage() {
           <div className="flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {tables.map((table) => {
-                const url = getTableUrl(table.id)
+                const url = getTableUrl(storeSlug, table.id)
                 return (
                   <Card key={table.id} className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h3 className="font-semibold text-slate-800">{table.name}</h3>
-                        <p className="text-[11px] text-slate-400 mt-0.5 truncate">{url}</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          {table.zone === 'indoor' ? 'Trong nhà' : table.zone === 'outdoor' ? 'Ngoài trời' : 'VIP'}
+                        </p>
                       </div>
-                      <Badge variant="success" dot>
-                        Bật
-                      </Badge>
+                      <Badge variant="success" dot>Bật</Badge>
                     </div>
 
                     {/* QR Code thật — quét được */}
@@ -126,11 +141,6 @@ export default function QrMenuPage() {
                       </div>
                     </div>
 
-                    {/* Stats */}
-                    <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
-                      <span>{table.zone === 'indoor' ? 'Trong nhà' : table.zone === 'outdoor' ? 'Ngoài trời' : 'VIP'}</span>
-                    </div>
-
                     {/* Actions */}
                     <div className="flex gap-2">
                       <Button
@@ -140,20 +150,26 @@ export default function QrMenuPage() {
                         onClick={() => handleCopy(table)}
                       >
                         {copiedId === table.id ? (
-                          <>
-                            <CheckCircle2 size={14} className="text-emerald-500" />
-                            Đã copy
-                          </>
+                          <><CheckCircle2 size={14} className="text-emerald-500" />Đã copy</>
                         ) : (
-                          <>
-                            <Copy size={14} />
-                            Copy link
-                          </>
+                          <><Copy size={14} />Copy link</>
                         )}
                       </Button>
-                      <Button variant="ghost" size="sm" onClick={() => window.print()}>
-                        <Printer size={14} />
-                        In
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenMenu(table)}
+                        title="Mở trang menu khách"
+                      >
+                        <ExternalLink size={14} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handlePreview(table)}
+                        title="Xem trước"
+                      >
+                        <Smartphone size={14} />
                       </Button>
                     </div>
                   </Card>
@@ -166,30 +182,62 @@ export default function QrMenuPage() {
           {showPreview && (
             <div className="lg:w-[320px] shrink-0">
               <Card className="p-4 sticky top-6">
-                <h3 className="font-semibold text-slate-800 mb-3 text-sm">Xem trước trên điện thoại</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-slate-800 text-sm">Xem trước trên điện thoại</h3>
+                  {previewTable && (
+                    <span className="text-xs text-slate-400">{previewTable.name}</span>
+                  )}
+                </div>
                 <div className="rounded-3xl border-4 border-slate-800 overflow-hidden" style={{ aspectRatio: '9/16' }}>
-                  <div className="h-full bg-white flex flex-col">
+                  <div className="h-full bg-slate-50 flex flex-col">
                     {/* Status bar */}
-                    <div className="h-6 bg-slate-800 flex items-center justify-center">
+                    <div className="h-6 bg-slate-800 flex items-center justify-center shrink-0">
                       <div className="w-16 h-1.5 bg-slate-600 rounded-full" />
                     </div>
 
                     {/* Header */}
-                    <div className="px-4 py-3 text-white text-center" style={{ backgroundColor: '#10b981' }}>
-                      <p className="text-[10px] opacity-80">Bàn 1 — Trong nhà</p>
-                      <h4 className="text-sm font-bold">Menu Bia Garden Q7</h4>
+                    <div className="px-4 py-3 text-white text-center shrink-0" style={{ backgroundColor: '#10b981' }}>
+                      <p className="text-[10px] opacity-80">
+                        {previewTable
+                          ? `${previewTable.name} — ${previewTable.zone === 'indoor' ? 'Trong nhà' : previewTable.zone === 'outdoor' ? 'Ngoài trời' : 'VIP'}`
+                          : 'Bàn 1 — Trong nhà'}
+                      </p>
+                      <h4 className="text-sm font-bold">{storeName}</h4>
+                    </div>
+
+                    {/* Category tabs mockup */}
+                    <div className="px-2 py-2 bg-white border-b border-slate-100 shrink-0">
+                      <div className="flex gap-1.5 overflow-hidden">
+                        {['Nhậu chính', 'Đồ nhắm', 'Đồ uống'].map((cat, i) => (
+                          <div
+                            key={cat}
+                            className={`shrink-0 px-2 py-1 rounded-full text-[9px] font-medium ${
+                              i === 0 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {cat}
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Menu items mockup */}
-                    <div className="flex-1 p-3 space-y-2 overflow-hidden">
-                      {['Lẩu Thái', 'Gà nướng muối ớt', 'Nem nướng', 'Bia Tiger'].map((item, i) => (
-                        <div key={i} className="flex items-center gap-2 p-2 rounded-xl bg-slate-50">
-                          <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-[10px]">🍽️</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-medium text-slate-700 truncate">{item}</p>
-                            <p className="text-[9px] text-slate-400">{[280, 180, 85, 30][i]}k</p>
+                    <div className="flex-1 p-2 space-y-1.5 overflow-hidden">
+                      {[
+                        { name: 'Lẩu Thái', price: '280k', emoji: '🍖' },
+                        { name: 'Gà nướng muối ớt', price: '180k', emoji: '🍗' },
+                        { name: 'Nem nướng', price: '85k', emoji: '🥗' },
+                        { name: 'Bia Tiger', price: '30k', emoji: '🍺' },
+                      ].map((item, i) => (
+                        <div key={i} className="flex items-center gap-2 p-1.5 rounded-xl bg-white shadow-sm">
+                          <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-sm shrink-0">
+                            {item.emoji}
                           </div>
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px]" style={{ backgroundColor: '#10b981' }}>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[9px] font-semibold text-slate-700 truncate">{item.name}</p>
+                            <p className="text-[9px] text-emerald-600 font-bold">{item.price}</p>
+                          </div>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0" style={{ backgroundColor: '#10b981' }}>
                             +
                           </div>
                         </div>
@@ -197,16 +245,27 @@ export default function QrMenuPage() {
                     </div>
 
                     {/* Bottom bar */}
-                    <div className="p-3 border-t border-slate-100">
-                      <div className="w-full py-2 rounded-xl text-white text-center text-[10px] font-semibold" style={{ backgroundColor: '#10b981' }}>
-                        Gửi order (2 món) — 310.000đ
+                    <div className="p-2 border-t border-slate-100 shrink-0">
+                      <div className="w-full py-2 rounded-xl text-white text-center text-[9px] font-bold" style={{ backgroundColor: '#10b981' }}>
+                        Xem giỏ hàng · 2 món — 310k
                       </div>
                     </div>
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-400 text-center mt-3">
-                  Giao diện khách hàng khi quét QR
+                  Giao diện thực tế khi khách quét QR
                 </p>
+                {previewTable && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => handleOpenMenu(previewTable)}
+                  >
+                    <ExternalLink size={13} />
+                    Mở trang thật
+                  </Button>
+                )}
               </Card>
             </div>
           )}
