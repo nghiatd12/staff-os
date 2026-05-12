@@ -20,9 +20,10 @@ export default function TableList({ tables, orders, selectedId, onSelect }) {
           </div>
         ) : (
           tables.map((table) => {
-            const tableOrder = orders.find((o) => o.table_id === table.id)
-            const items = tableOrder?.items || []
-            const total = items.reduce((s, i) => s + (i.price * (i.qty || i.quantity || 1)), 0)
+            // Gộp tất cả orders của bàn để tính tổng
+            const tableOrders = orders.filter((o) => o.table_id === table.id)
+            const allItems = tableOrders.flatMap((o) => o.items || [])
+            const total = allItems.reduce((s, i) => s + i.price * (i.qty || i.quantity || 1), 0)
             const isSelected = selectedId === table.id
 
             return (
