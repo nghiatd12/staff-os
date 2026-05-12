@@ -9,17 +9,31 @@ import authRoutes from './routes/auth.js'
 import tablesRoutes from './routes/tables.js'
 import menuRoutes from './routes/menu.js'
 import ordersRoutes from './routes/orders.js'
+import publicRoutes from './routes/public.js'
 
 const app = express()
 const httpServer = createServer(app)
 
+// Danh sách origins được phép — hỗ trợ nhiều domain (local + Vercel)
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Cho phép requests không có origin (mobile app, curl, Postman)
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.includes(origin)) return callback(null, true)
+    callback(new Error(`CORS blocked: ${origin}`))
+  },
+  credentials: true,
+}
+
 // Socket.IO — realtime cho KDS
-const io = new Server(httpServer, {
-  cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173' }
-})
+const io = new Server(httpServer, { cors: corsOptions })
 
 // Middleware
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }))
+app.use(cors(corsOptions))
 app.use(express.json())
 
 // Gắn io vào request để routes có thể emit events
@@ -30,6 +44,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/tables', tablesRoutes)
 app.use('/api/menu', menuRoutes)
 app.use('/api/orders', ordersRoutes)
+app.use('/api/public', publicRoutes) // Public routes — không cần auth (QR menu khách)
 
 // Health check
 app.get('/api/health', (req, res) => {
