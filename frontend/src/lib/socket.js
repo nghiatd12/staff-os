@@ -30,12 +30,19 @@ export function connectSocket(role) {
 
   _socket.on('connect', () => {
     console.log('[Socket] Connected:', _socket.id)
-    // Join room theo role
-    if (role) _socket.emit('join-role', role)
-    // KDS page cần join kitchen room bất kể role
-    _socket.emit('join-role', 'kitchen')
-    _socket.emit('join-role', 'waiter')
-    _socket.emit('join-role', 'cashier')
+
+    // Map role → rooms cần join
+    const roleRooms = {
+      owner:   ['kitchen', 'waiter', 'cashier'], // chủ quán xem tất cả
+      manager: ['kitchen', 'waiter', 'cashier'],
+      kitchen: ['kitchen'],
+      waiter:  ['waiter', 'kitchen'],
+      cashier: ['cashier', 'waiter'],
+    }
+
+    const rooms = roleRooms[role] || ['kitchen', 'waiter', 'cashier']
+    rooms.forEach((room) => _socket.emit('join-role', room))
+    console.log('[Socket] Joined rooms:', rooms)
   })
 
   _socket.on('disconnect', (reason) => {
