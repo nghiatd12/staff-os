@@ -45,7 +45,16 @@ export default function CashierPage() {
       />
 
       {selectedTable ? (
-        <BillDetail table={selectedTable} orders={orders} />
+        <BillDetail
+          table={selectedTable}
+          orders={orders}
+          onPaid={(tableId) => {
+            // Xóa bàn khỏi danh sách sau khi thanh toán
+            setTables((prev) => prev.filter((t) => t.id !== tableId))
+            setOrders((prev) => prev.filter((o) => o.table_id !== tableId))
+            setSelectedTable(null)
+          }}
+        />
       ) : (
         <div className="flex-1 flex items-center justify-center text-slate-400">
           <div className="text-center">
