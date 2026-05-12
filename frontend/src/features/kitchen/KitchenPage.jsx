@@ -41,7 +41,15 @@ export default function KitchenPage() {
     }
   }, [storeOrders, soundEnabled])
 
-  // Clock
+  // Khi mount: luôn fetch lại từ server để đảm bảo data mới nhất
+  useEffect(() => {
+    fetchOrders().then((data) => {
+      setOrders(data)
+      prevOrderIds.current = new Set(data.map((o) => o.id))
+      initialized.current = true
+    })
+  }, [])
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
     return () => clearInterval(timer)
