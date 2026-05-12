@@ -4,6 +4,7 @@ import TopBar from '@/components/layout/TopBar'
 import { api } from '@/lib/api'
 import { getToken, removeToken, getUser, setUser as saveUser, removeUser } from '@/lib/auth'
 import { prefetchAll, clearStore } from '@/lib/store'
+import { connectSocket, disconnectSocket } from '@/lib/socket'
 
 // Feature pages
 import DashboardPage  from '@/features/dashboard/DashboardPage'
@@ -56,6 +57,7 @@ export default function App() {
         saveUser(userData)
         setUser(userData)
         setCurrentView('app')
+        connectSocket(userData.role) // Kết nối socket khi reload
       })
       .catch(() => {
         removeToken()
@@ -68,12 +70,14 @@ export default function App() {
     setUser(userData)
     setCurrentView('app')
     prefetchAll()
+    connectSocket(userData.role) // Kết nối socket theo role
   }
 
   const handleLogout = () => {
     removeToken()
     removeUser()
     clearStore()
+    disconnectSocket()
     setUser(null)
     setCurrentView('login')
   }
