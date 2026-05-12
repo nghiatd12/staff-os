@@ -69,4 +69,6 @@ export {
   Store,
   Coffee,
   Gift,
+  ExternalLink,
+  LogOut,
 } from 'lucide-react'
