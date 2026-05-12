@@ -3,7 +3,7 @@ import Sidebar from '@/components/layout/Sidebar'
 import TopBar from '@/components/layout/TopBar'
 import { api } from '@/lib/api'
 import { getToken, removeToken, getUser, setUser as saveUser, removeUser } from '@/lib/auth'
-import { prefetchAll, clearStore } from '@/lib/store'
+import { prefetchAll, clearStore, bindSocketToStore } from '@/lib/store'
 import { connectSocket, disconnectSocket } from '@/lib/socket'
 
 // Feature pages
@@ -57,7 +57,8 @@ export default function App() {
         saveUser(userData)
         setUser(userData)
         setCurrentView('app')
-        connectSocket(userData.role) // Kết nối socket khi reload
+        const socket = connectSocket(userData.role)
+        bindSocketToStore(socket)
       })
       .catch(() => {
         removeToken()
@@ -70,7 +71,8 @@ export default function App() {
     setUser(userData)
     setCurrentView('app')
     prefetchAll()
-    connectSocket(userData.role) // Kết nối socket theo role
+    const socket = connectSocket(userData.role)
+    bindSocketToStore(socket)
   }
 
   const handleLogout = () => {
