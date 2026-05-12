@@ -50,6 +50,7 @@ export async function fetchMenu() {
 export async function fetchOrders() {
   try {
     const data = await api.get('/orders/active')
+    // Luôn replace toàn bộ — đảm bảo sync đúng với DB
     _orders = data.orders || []
     notify()
   } catch { /* keep old data */ }
@@ -75,8 +76,16 @@ export async function prefetchAll() {
 export function bindSocketToStore(socket) {
   if (!socket) return
 
+  // Tránh bind nhiều lần
+  socket.off('new-order')
+  socket.off('item-updated')
+  socket.off('order-completed')
+  socket.off('order-ready')
+  socket.off('table-updated')
+
   // Order mới từ phục vụ hoặc khách QR → thêm vào store
   socket.on('new-order', (order) => {
+    console.log('[Store] new-order received:', order.id)
     const exists = _orders.find((o) => o.id === order.id)
     if (!exists) {
       _orders = [..._orders, order]
@@ -90,15 +99,25 @@ export function bindSocketToStore(socket) {
       if (o.id !== orderId) return o
       return {
         ...o,
-        items: o.items.map((it) => it.id === item.id ? { ...it, ...item, done: item.status === 'done' } : it),
+        items: o.items.map((it) =>
+          it.id === item.id ? { ...it, ...item, done: item.status === 'done' } : it
+        ),
       }
     })
     notify()
   })
 
-  // Order hoàn thành (bếp xong) → đổi status
+  // Bếp bấm Hoàn thành → xóa khỏi KDS store
   socket.on('order-completed', ({ orderId }) => {
+    console.log('[Store] order-completed:', orderId)
     _orders = _orders.filter((o) => o.id !== orderId)
+    notify()
+  })
+
+  // order-ready cũng xóa khỏi KDS (bếp xong rồi)
+  socket.on('order-ready', (order) => {
+    console.log('[Store] order-ready:', order.id)
+    _orders = _orders.filter((o) => o.id !== order.id)
     notify()
   })
 
