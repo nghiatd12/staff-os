@@ -30,7 +30,12 @@ export function connectSocket(role) {
 
   _socket.on('connect', () => {
     console.log('[Socket] Connected:', _socket.id)
+    // Join room theo role
     if (role) _socket.emit('join-role', role)
+    // KDS page cần join kitchen room bất kể role
+    _socket.emit('join-role', 'kitchen')
+    _socket.emit('join-role', 'waiter')
+    _socket.emit('join-role', 'cashier')
   })
 
   _socket.on('disconnect', (reason) => {
