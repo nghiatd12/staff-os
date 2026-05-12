@@ -1,7 +1,7 @@
 /**
- * Global data store — cache + prefetch
+ * Global data store — cache + prefetch + realtime socket
  * Load 1 lần khi login, dùng chung cho tất cả trang
- * Re-fetch khi cần (sau khi tạo order, đổi trạng thái bàn...)
+ * Tự cập nhật qua Socket.IO khi có order mới / bàn thay đổi
  */
 import { api } from './api'
 
@@ -66,6 +66,49 @@ export async function prefetchAll() {
     fetchMenu(),
     fetchOrders(),
   ])
+}
+
+/**
+ * Kết nối store với Socket.IO để tự cập nhật realtime
+ * Gọi sau khi socket đã connect
+ */
+export function bindSocketToStore(socket) {
+  if (!socket) return
+
+  // Order mới từ phục vụ hoặc khách QR → thêm vào store
+  socket.on('new-order', (order) => {
+    const exists = _orders.find((o) => o.id === order.id)
+    if (!exists) {
+      _orders = [..._orders, order]
+      notify()
+    }
+  })
+
+  // Cập nhật trạng thái món
+  socket.on('item-updated', ({ orderId, item }) => {
+    _orders = _orders.map((o) => {
+      if (o.id !== orderId) return o
+      return {
+        ...o,
+        items: o.items.map((it) => it.id === item.id ? { ...it, ...item, done: item.status === 'done' } : it),
+      }
+    })
+    notify()
+  })
+
+  // Order hoàn thành (bếp xong) → đổi status
+  socket.on('order-completed', ({ orderId }) => {
+    _orders = _orders.filter((o) => o.id !== orderId)
+    notify()
+  })
+
+  // Bàn thay đổi trạng thái
+  socket.on('table-updated', (tableData) => {
+    _tables = _tables.map((t) =>
+      t.id === tableData.id ? { ...t, ...tableData } : t
+    )
+    notify()
+  })
 }
 
 /**
