@@ -1,24 +1,89 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ChefHat, Clock } from '@/components/ui/Icon'
 import { api } from '@/lib/api'
 import { useOrders } from '@/lib/useStore'
 import { fetchOrders } from '@/lib/store'
+import { notifyNewOrder, notifyOrderReady, unlockAudio } from '@/lib/sound'
 import KdsCard from './components/KdsCard'
 
 export default function KitchenPage() {
   const { orders: storeOrders } = useOrders()
   const [orders, setOrders] = useState([])
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [lastNotified, setLastNotified] = useState(null) // tránh beep trùng
+  const prevOrderIds = useRef(new Set())
 
-  // Sync from store
+  // Sync from store + detect order mới để phát âm thanh
   useEffect(() => {
-    if (storeOrders.length > 0) {
-      setOrders(storeOrders)
-    } else {
-      // First load — fetch if store empty
-      fetchOrders().then((data) => setOrders(data))
+    const incoming = storeOrders.length > 0 ? storeOrders : []
+
+    if (incoming.length > 0) {
+      // Tìm order mới (chưa có trong prevOrderIds)
+      const newOrders = incoming.filter((o) => !prevOrderIds.current.has(o.id))
+
+      if (newOrders.length > 0 && soundEnabled) {
+        // Phát âm thanh cho order mới nhất
+        const latest = newOrders[newOrders.length - 1]
+        const tableName = latest.table_name || latest.table || `Đơn ${latest.id}`
+        notifyNewOrder(tableName)
+        setLastNotified(latest.id)
+      }
+
+      // Cập nhật set
+      prevOrderIds.current = new Set(incoming.map((o) => o.id))
+      setOrders(incoming)
+    } else if (storeOrders.length === 0 && orders.length === 0) {
+      fetchOrders().then((data) => {
+        setOrders(data)
+        prevOrderIds.current = new Set(data.map((o) => o.id))
+      })
     }
-  }, [storeOrders])
+  }, [storeOrders, soundEnabled])
+
+  // Lắng nghe Socket.IO new-order trực tiếp (cho KDS không qua store)
+  useEffect(() => {
+    // Import socket lazily để tránh circular
+    let socket = null
+    import('@/lib/socket').then(({ getSocket }) => {
+      socket = getSocket()
+      if (!socket) return
+
+      const handleNewOrder = (order) => {
+        if (!soundEnabled) return
+        const tableName = order.table_name || order.table || `Đơn ${order.id}`
+        notifyNewOrder(tableName)
+
+        // Thêm vào danh sách nếu chưa có
+        setOrders((prev) => {
+          if (prev.find((o) => o.id === order.id)) return prev
+          return [...prev, order]
+        })
+        prevOrderIds.current.add(order.id)
+      }
+
+      const handleOrderReady = (order) => {
+        if (!soundEnabled) return
+        const tableName = order.table_name || order.table || `Đơn ${order.id}`
+        notifyOrderReady(tableName)
+      }
+
+      socket.on('new-order', handleNewOrder)
+      socket.on('order-ready', handleOrderReady)
+
+      return () => {
+        socket.off('new-order', handleNewOrder)
+        socket.off('order-ready', handleOrderReady)
+      }
+    }).catch(() => {})
+
+    return () => {
+      if (socket) {
+        socket.off('new-order')
+        socket.off('order-ready')
+      }
+    }
+  }, [soundEnabled])
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
@@ -28,11 +93,9 @@ export default function KitchenPage() {
   const toggleItem = async (orderId, itemIdx) => {
     const order = orders.find((o) => o.id === orderId)
     if (!order) return
-
     const item = order.items[itemIdx]
     if (!item) return
 
-    // Optimistic update
     setOrders((prev) =>
       prev.map((o) =>
         o.id === orderId
@@ -41,13 +104,11 @@ export default function KitchenPage() {
       )
     )
 
-    // Call API — use item.id if available
     try {
       const itemId = item.id || itemIdx
       const newStatus = item.done ? 'pending' : 'done'
       await api.patch(`/orders/${orderId}/items/${itemId}`, { status: newStatus })
     } catch {
-      // Revert on failure
       setOrders((prev) =>
         prev.map((o) =>
           o.id === orderId
@@ -59,18 +120,25 @@ export default function KitchenPage() {
   }
 
   const completeOrder = async (orderId) => {
-    // Optimistic update
     setOrders((prev) => prev.filter((o) => o.id !== orderId))
-
     try {
       await api.patch(`/orders/${orderId}/complete`)
     } catch {
-      // Re-fetch on failure
       api.get('/orders/active')
         .then((data) => setOrders(data.orders || []))
         .catch(() => {})
     }
   }
+
+  // Unlock audio khi user click lần đầu vào trang
+  const handleFirstClick = () => {
+    unlockAudio()
+    document.removeEventListener('click', handleFirstClick)
+  }
+  useEffect(() => {
+    document.addEventListener('click', handleFirstClick)
+    return () => document.removeEventListener('click', handleFirstClick)
+  }, [])
 
   return (
     <div className="h-full flex flex-col fade-in overflow-hidden">
@@ -89,7 +157,24 @@ export default function KitchenPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
+          {/* Sound toggle */}
+          <button
+            onClick={() => {
+              unlockAudio()
+              setSoundEnabled((v) => !v)
+            }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
+              soundEnabled
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : 'bg-slate-50 border-slate-200 text-slate-400'
+            }`}
+            title={soundEnabled ? 'Tắt âm thanh' : 'Bật âm thanh'}
+          >
+            <span className="text-base">{soundEnabled ? '🔔' : '🔕'}</span>
+            <span className="hidden sm:inline">{soundEnabled ? 'Âm thanh bật' : 'Âm thanh tắt'}</span>
+          </button>
+
           {/* Legend */}
           <div className="hidden lg:flex items-center gap-3">
             {[
