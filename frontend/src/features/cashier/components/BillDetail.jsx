@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { api } from '@/lib/api'
 import { formatCurrency } from '@/utils/format'
 import { Printer, Banknote, Smartphone, QrCode, Wallet, Check } from '@/components/ui/Icon'
 import Card from '@/components/ui/Card'
@@ -12,16 +13,51 @@ const PAYMENT_METHODS = [
 
 /**
  * BillDetail — chi tiết hóa đơn và thanh toán
+ * Gộp tất cả orders của cùng 1 bàn lại thành 1 hóa đơn
  */
-export default function BillDetail({ table, orders }) {
+export default function BillDetail({ table, orders, onPaid }) {
   const [discount, setDiscount] = useState('')
   const [payMethod, setPayMethod] = useState('cash')
+  const [paying, setPaying] = useState(false)
 
-  const tableOrder = orders.find((o) => o.table_id === table.id)
-  const items = tableOrder?.items || []
-  const subtotal = items.reduce((s, i) => s + (i.price * (i.qty || i.quantity || 1)), 0)
+  // Lấy TẤT CẢ orders của bàn này (có thể gọi nhiều lần)
+  const tableOrders = orders.filter((o) => o.table_id === table.id)
+
+  // Gộp tất cả items từ mọi order
+  const allItems = tableOrders.flatMap((o) => o.items || [])
+
+  // Gộp items trùng tên lại (cùng món gọi nhiều lần)
+  const mergedItems = allItems.reduce((acc, item) => {
+    const existing = acc.find((i) => i.name === item.name && i.price === item.price)
+    if (existing) {
+      existing.qty = (existing.qty || existing.quantity || 1) + (item.qty || item.quantity || 1)
+    } else {
+      acc.push({ ...item, qty: item.qty || item.quantity || 1 })
+    }
+    return acc
+  }, [])
+
+  const subtotal = mergedItems.reduce((s, i) => s + i.price * i.qty, 0)
   const discountAmt = discount ? Math.round(subtotal * (parseFloat(discount) / 100)) : 0
-  const total    = subtotal - discountAmt
+  const total = subtotal - discountAmt
+
+  const handlePay = async () => {
+    if (tableOrders.length === 0) return
+    setPaying(true)
+    try {
+      // Thanh toán tất cả orders của bàn
+      await Promise.all(
+        tableOrders.map((o) =>
+          api.patch(`/orders/${o.id}/pay`, { paymentMethod: payMethod, discount: parseFloat(discount) || 0 })
+        )
+      )
+      onPaid?.(table.id)
+    } catch (err) {
+      alert(err.message || 'Thanh toán thất bại')
+    } finally {
+      setPaying(false)
+    }
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -30,7 +66,7 @@ export default function BillDetail({ table, orders }) {
         <div>
           <h2 className="font-bold text-slate-800 text-lg">Hóa đơn — {table.name}</h2>
           <p className="text-slate-400 text-sm">
-            {table.guests} khách · Vào lúc {table.time}
+            {tableOrders.length} lần gọi · {mergedItems.length} món
           </p>
         </div>
         <button className="flex items-center gap-2 border border-slate-200 text-slate-600 px-4 py-2 rounded-2xl text-sm hover:bg-slate-50 transition-colors font-medium">
@@ -45,7 +81,7 @@ export default function BillDetail({ table, orders }) {
           <div className="p-4 border-b border-slate-100">
             <h3 className="font-semibold text-slate-700 text-sm">Chi tiết món ăn</h3>
           </div>
-          {items.length === 0 ? (
+          {mergedItems.length === 0 ? (
             <div className="p-5 text-center">
               <p className="text-slate-400 text-sm">Không có dữ liệu</p>
             </div>
@@ -60,13 +96,13 @@ export default function BillDetail({ table, orders }) {
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, i) => (
+                {mergedItems.map((item, i) => (
                   <tr key={i} className="border-b border-slate-50 table-row-hover">
                     <td className="p-4 text-sm text-slate-700 font-medium">{item.name}</td>
-                    <td className="p-4 text-sm text-center text-slate-500">{item.qty || item.quantity || 1}</td>
+                    <td className="p-4 text-sm text-center text-slate-500">{item.qty}</td>
                     <td className="p-4 text-sm text-right text-slate-500">{formatCurrency(item.price)}</td>
                     <td className="p-4 text-sm text-right font-bold text-slate-800">
-                      {formatCurrency(item.price * (item.qty || item.quantity || 1))}
+                      {formatCurrency(item.price * item.qty)}
                     </td>
                   </tr>
                 ))}
@@ -128,9 +164,13 @@ export default function BillDetail({ table, orders }) {
             })}
           </div>
 
-          <button className="w-full bg-brand-500 hover:bg-brand-600 text-white py-4 rounded-2xl font-bold text-base transition-all shadow-soft hover:shadow-card flex items-center justify-center gap-2">
+          <button
+            onClick={handlePay}
+            disabled={paying || mergedItems.length === 0}
+            className="w-full bg-brand-500 hover:bg-brand-600 text-white py-4 rounded-2xl font-bold text-base transition-all shadow-soft hover:shadow-card flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
             <Check size={20} strokeWidth={2.5} />
-            Thanh toán {formatCurrency(total)}
+            {paying ? 'Đang xử lý...' : `Thanh toán ${formatCurrency(total)}`}
           </button>
         </Card>
       </div>
