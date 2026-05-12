@@ -67,6 +67,8 @@ export default function KdsCard({ order, onToggleItem, onComplete }) {
 
   // Tên bàn — hỗ trợ nhiều field name khác nhau
   const tableName = order.table_name || order.table || `#${order.id}`
+  // Order từ khách QR: user_id null hoặc source = 'guest'
+  const isGuestOrder = !order.user_id || order.source === 'guest'
 
   return (
     <div className={`bg-white rounded-2xl overflow-hidden shadow-sm ${style.border} ${level === 'red' ? 'pulse-live' : ''}`}>
@@ -78,10 +80,10 @@ export default function KdsCard({ order, onToggleItem, onComplete }) {
           <span className="text-white/70 text-xs font-medium shrink-0">#{order.id}</span>
           {/* Tên bàn — to và rõ */}
           <span className="text-white font-bold text-lg leading-none truncate">{tableName}</span>
-          {/* Guest order badge */}
-          {order.source === 'guest' && (
+          {/* Guest order badge — chỉ hiện khi thực sự từ QR */}
+          {isGuestOrder && (
             <span className="bg-white/20 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-md shrink-0">
-              QR
+              📱
             </span>
           )}
         </div>
