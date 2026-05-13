@@ -5,6 +5,7 @@ import DashboardPage from '@/pages/DashboardPage'
 import TenantsPage from '@/pages/TenantsPage'
 import TenantDetailPage from '@/pages/TenantDetailPage'
 import AddTenantPage from '@/pages/AddTenantPage'
+import RestaurantTypesPage from '@/pages/RestaurantTypesPage'
 import { getAdminToken, removeAdminToken } from '@/lib/auth'
 
 export default function App() {
@@ -48,6 +49,8 @@ export default function App() {
     content = <TenantDetailPage tenantId={selectedTenantId} setActiveScreen={setActiveScreen} toast={showToast} />
   } else if (activeScreen === 'add-tenant') {
     content = <AddTenantPage setActiveScreen={setActiveScreen} toast={showToast} />
+  } else if (activeScreen === 'restaurant-types') {
+    content = <RestaurantTypesPage toast={showToast} />
   }
 
   return (
@@ -60,7 +63,10 @@ export default function App() {
       />
       <main className="flex-1 min-w-0 overflow-auto">
         {toast && (
-          <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl bg-emerald-600 text-white text-sm font-bold shadow-soft">
+          <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-900 text-white text-sm font-medium shadow-xl animate-fade-in">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
             {toast}
           </div>
         )}
