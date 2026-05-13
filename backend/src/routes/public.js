@@ -30,13 +30,20 @@ router.get('/:slug/table/:tableId', async (req, res) => {
       return res.status(404).json({ error: 'Không tìm thấy bàn' })
     }
 
-    // Lấy menu
-    const items = await queryAll(
-      `SELECT id, name, category, price, description
-       FROM menu_items
-       WHERE tenant_id = $1 AND available = true
-       ORDER BY category, sort_order, name`,
+    const menuSet = await queryOne(
+      'SELECT id, name, type FROM menu_sets WHERE tenant_id = $1 AND is_active = true ORDER BY id LIMIT 1',
       [tenant.id]
+    )
+
+    // Lấy menu active. Nếu tenant chưa migrate menu_sets thì fallback sang tất cả món.
+    const items = await queryAll(
+      `SELECT id, name, category, price, description, menu_set_id
+       FROM menu_items
+       WHERE tenant_id = $1
+         AND available = true
+         AND ($2::int IS NULL OR menu_set_id = $2)
+       ORDER BY category, sort_order, name`,
+      [tenant.id, menuSet?.id || null]
     )
 
     // Group theo category
@@ -51,6 +58,7 @@ router.get('/:slug/table/:tableId', async (req, res) => {
       table,
       menu,
       categories: Object.keys(menu),
+      menuSet,
     })
   } catch (err) {
     console.error('[Public] Get table+menu error:', err)

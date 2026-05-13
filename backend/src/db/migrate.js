@@ -58,9 +58,23 @@ async function migrate() {
     -- ============================================
     -- 4. MENU ITEMS (Thực đơn)
     -- ============================================
+    CREATE TABLE IF NOT EXISTS menu_sets (
+      id            SERIAL PRIMARY KEY,
+      tenant_id     INT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      name          VARCHAR(255) NOT NULL,
+      type          VARCHAR(50) DEFAULT 'regular',
+      description   TEXT,
+      is_active     BOOLEAN DEFAULT false,
+      created_at    TIMESTAMP DEFAULT NOW(),
+      updated_at    TIMESTAMP DEFAULT NOW(),
+      UNIQUE (tenant_id, name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_menu_sets_tenant ON menu_sets(tenant_id);
+
     CREATE TABLE IF NOT EXISTS menu_items (
       id            SERIAL PRIMARY KEY,
       tenant_id     INT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      menu_set_id   INT REFERENCES menu_sets(id) ON DELETE SET NULL,
       name          VARCHAR(255) NOT NULL,
       category      VARCHAR(100) NOT NULL,
       price         INT NOT NULL,
@@ -142,6 +156,27 @@ async function migrate() {
     );
     CREATE INDEX IF NOT EXISTS idx_customers_tenant ON customers(tenant_id);
     CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+  `)
+
+  await pool.query(`
+    ALTER TABLE menu_items
+      ADD COLUMN IF NOT EXISTS menu_set_id INT REFERENCES menu_sets(id) ON DELETE SET NULL;
+
+    INSERT INTO menu_sets (tenant_id, name, type, description, is_active)
+    SELECT t.id, 'Menu mặc định', 'regular', 'Bộ menu được tạo tự động từ dữ liệu hiện có', true
+    FROM tenants t
+    WHERE NOT EXISTS (
+      SELECT 1 FROM menu_sets ms WHERE ms.tenant_id = t.id
+    );
+
+    UPDATE menu_items mi
+    SET menu_set_id = ms.id
+    FROM menu_sets ms
+    WHERE mi.tenant_id = ms.tenant_id
+      AND mi.menu_set_id IS NULL
+      AND ms.is_active = true;
+
+    CREATE INDEX IF NOT EXISTS idx_menu_set ON menu_items(tenant_id, menu_set_id);
   `)
 
   console.log('✅ All tables created successfully!')

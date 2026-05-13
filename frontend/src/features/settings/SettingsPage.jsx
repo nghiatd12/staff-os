@@ -3,6 +3,7 @@ import {
   Settings, Table2, ClipboardList, Printer, Bell, Shield, Plus, Trash2, Pencil
 } from '@/components/ui/Icon'
 import Card from '@/components/ui/Card'
+import MenuSettings from './MenuSettings'
 
 const TABS = [
   { id: 'general',  label: 'Thông tin chung', Icon: Settings },
@@ -210,7 +211,9 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {activeTab !== 'zones' && activeTab !== 'general' && (
+          {activeTab === 'menu' && <MenuSettings />}
+
+          {activeTab !== 'zones' && activeTab !== 'general' && activeTab !== 'menu' && (
             <Card className="p-8 text-center">
               <div className="w-16 h-16 rounded-3xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
                 <Settings size={28} className="text-slate-300" />

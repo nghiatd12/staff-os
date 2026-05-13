@@ -15,9 +15,12 @@ const app = express()
 const httpServer = createServer(app)
 
 // Danh sách origins được phép — hỗ trợ nhiều domain (local + Vercel)
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
   .map((o) => o.trim())
+for (const origin of ['http://localhost:5173', 'http://127.0.0.1:5173']) {
+  if (!allowedOrigins.includes(origin)) allowedOrigins.push(origin)
+}
 
 const corsOptions = {
   origin: (origin, callback) => {

@@ -59,6 +59,14 @@ async function seed() {
   console.log('✅ Tables: 15 bàn (8 indoor, 4 outdoor, 3 VIP)')
 
   // 5. Tạo menu
+  const { rows: [defaultMenuSet] } = await pool.query(`
+    INSERT INTO menu_sets (tenant_id, name, type, description, is_active)
+    VALUES ($1, 'Menu ngày thường', 'regular', 'Menu bán hằng ngày', true)
+    ON CONFLICT (tenant_id, name) DO UPDATE
+      SET is_active = true, updated_at = NOW()
+    RETURNING id
+  `, [tenantId])
+
   const menuData = [
     ['Nhậu chính', 'Lẩu Thái', 280000],
     ['Nhậu chính', 'Lẩu mắm', 260000],
@@ -83,10 +91,10 @@ async function seed() {
   ]
   for (const [category, name, price] of menuData) {
     await pool.query(`
-      INSERT INTO menu_items (tenant_id, category, name, price)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO menu_items (tenant_id, menu_set_id, category, name, price)
+      VALUES ($1, $2, $3, $4, $5)
       ON CONFLICT DO NOTHING
-    `, [tenantId, category, name, price])
+    `, [tenantId, defaultMenuSet.id, category, name, price])
   }
   console.log(`✅ Menu: ${menuData.length} món`)
 
