@@ -70,6 +70,12 @@ export function playOrderReady() {
   beep(1047, 200, 0.5, 'sine', 0.12) // Do cao
 }
 
+export function playStaffCall() {
+  beep(880, 140, 0.55, 'sine', 0.0)
+  beep(880, 140, 0.55, 'sine', 0.18)
+  beep(1175, 220, 0.6, 'sine', 0.36)
+}
+
 /**
  * ⚠️ Beep cảnh báo — order quá lâu (> 20 phút)
  */
@@ -134,16 +140,25 @@ export function notifyOrderReady(tableName) {
  * Gọi hàm này khi user click/touch lần đầu để unlock AudioContext
  * Browser yêu cầu user gesture trước khi phát âm thanh
  */
-export function unlockAudio() {
+export async function unlockAudio() {
   try {
     const ctx = getAudioContext()
+    if (ctx.state === 'suspended') {
+      await ctx.resume()
+    }
     // Phát 1 nốt im lặng để unlock
     const buf = ctx.createBuffer(1, 1, 22050)
     const src = ctx.createBufferSource()
     src.buffer = buf
     src.connect(ctx.destination)
     src.start(0)
+    return ctx.state === 'running'
   } catch (e) {
     // ignore
   }
+  return false
+}
+
+export function isAudioUnlocked() {
+  return _ctx?.state === 'running'
 }

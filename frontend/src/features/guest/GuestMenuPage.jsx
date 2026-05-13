@@ -4,6 +4,7 @@
  * Không cần đăng nhập. Khách quét QR → chọn món → gửi order.
  */
 import { useState, useEffect, useCallback } from 'react'
+import { playOrderReady, playStaffCall } from '@/lib/sound'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
@@ -483,6 +484,7 @@ export default function GuestMenuPage({ slug, tableId }) {
         method: 'POST',
         body: JSON.stringify({ tableId: parseInt(tableId), message: 'Khách cần hỗ trợ' }),
       })
+      playStaffCall()
       showActionStatus('Đã gọi nhân viên. Nhân viên sẽ tới ngay.')
     } catch (err) {
       showActionStatus(err.message || 'Chưa gọi được nhân viên, vui lòng thử lại.')
@@ -498,6 +500,7 @@ export default function GuestMenuPage({ slug, tableId }) {
           total: cart.reduce((sum, item) => sum + item.price * item.qty, 0) || orderTotal || 0,
         }),
       })
+      playOrderReady()
       showActionStatus('Đã gọi thanh toán. Thu ngân đã nhận thông báo.')
     } catch (err) {
       showActionStatus(err.message || 'Chưa gọi được thanh toán, vui lòng thử lại.')

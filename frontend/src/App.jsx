@@ -5,7 +5,7 @@ import { api } from '@/lib/api'
 import { getToken, removeToken, getUser, setUser as saveUser, removeUser } from '@/lib/auth'
 import { prefetchAll, clearStore, bindSocketToStore } from '@/lib/store'
 import { connectSocket, disconnectSocket } from '@/lib/socket'
-import { playNewOrder, playOrderReady, unlockAudio } from '@/lib/sound'
+import { isAudioUnlocked, playNewOrder, playOrderReady, playStaffCall, unlockAudio } from '@/lib/sound'
 
 // Feature pages
 import DashboardPage  from '@/features/dashboard/DashboardPage'
@@ -40,6 +40,13 @@ export default function App() {
   const [activeScreen, setActiveScreen] = useState('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [notifications, setNotifications] = useState([])
+  const [audioReady, setAudioReady] = useState(false)
+
+  const enableAudio = () => {
+    Promise.resolve(unlockAudio()).then(() => {
+      setAudioReady(isAudioUnlocked())
+    })
+  }
 
   const pushNotification = (notification) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -56,7 +63,7 @@ export default function App() {
     socket.__staffosGlobalNotificationsBound = true
 
     socket.on('new-order', (order) => {
-      playNewOrder()
+      if (isAudioUnlocked()) playNewOrder()
       pushNotification({
         tone: 'emerald',
         title: 'Order mới',
@@ -65,7 +72,7 @@ export default function App() {
     })
 
     socket.on('guest-call-staff', (payload) => {
-      playNewOrder()
+      if (isAudioUnlocked()) playStaffCall()
       pushNotification({
         tone: 'emerald',
         title: 'Khách gọi nhân viên',
@@ -74,7 +81,7 @@ export default function App() {
     })
 
     socket.on('guest-request-payment', (payload) => {
-      playOrderReady()
+      if (isAudioUnlocked()) playOrderReady()
       pushNotification({
         tone: 'amber',
         title: 'Khách gọi thanh toán',
@@ -156,8 +163,8 @@ export default function App() {
   return (
     <div
       className="flex h-screen overflow-hidden bg-slate-50"
-      onClick={unlockAudio}
-      onTouchStart={unlockAudio}
+      onClick={enableAudio}
+      onTouchStart={enableAudio}
     >
       <Sidebar
         active={activeScreen}
@@ -173,6 +180,19 @@ export default function App() {
           <Screen setActive={setActiveScreen} />
         </div>
       </main>
+      {!audioReady && (
+        <button
+          onClick={() => {
+            Promise.resolve(unlockAudio()).then(() => {
+              playStaffCall()
+              setAudioReady(isAudioUnlocked())
+            })
+          }}
+          className="fixed bottom-4 right-4 z-50 rounded-2xl bg-slate-900 text-white px-4 py-3 text-sm font-bold shadow-elevated"
+        >
+          Bật chuông
+        </button>
+      )}
       <GlobalNotifications notifications={notifications} />
     </div>
   )
