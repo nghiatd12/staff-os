@@ -5,6 +5,7 @@ import { api } from '@/lib/api'
 import { getToken, removeToken, getUser, setUser as saveUser, removeUser } from '@/lib/auth'
 import { prefetchAll, clearStore, bindSocketToStore } from '@/lib/store'
 import { connectSocket, disconnectSocket } from '@/lib/socket'
+import { playNewOrder, playOrderReady, unlockAudio } from '@/lib/sound'
 
 // Feature pages
 import DashboardPage  from '@/features/dashboard/DashboardPage'
@@ -38,6 +39,49 @@ export default function App() {
   const [user, setUser] = useState(null)
   const [activeScreen, setActiveScreen] = useState('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [notifications, setNotifications] = useState([])
+
+  const pushNotification = (notification) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const item = { id, ...notification }
+    setNotifications((prev) => [item, ...prev].slice(0, 4))
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id))
+    }, 7000)
+  }
+
+  const bindGlobalNotifications = (socket) => {
+    if (!socket) return
+    if (socket.__staffosGlobalNotificationsBound) return
+    socket.__staffosGlobalNotificationsBound = true
+
+    socket.on('new-order', (order) => {
+      playNewOrder()
+      pushNotification({
+        tone: 'emerald',
+        title: 'Order mới',
+        message: `${order.table_name || order.table || `Bàn #${order.table_id || order.id}`} vừa gửi món`,
+      })
+    })
+
+    socket.on('guest-call-staff', (payload) => {
+      playNewOrder()
+      pushNotification({
+        tone: 'emerald',
+        title: 'Khách gọi nhân viên',
+        message: `${payload.tableName || 'Một bàn'} cần hỗ trợ`,
+      })
+    })
+
+    socket.on('guest-request-payment', (payload) => {
+      playOrderReady()
+      pushNotification({
+        tone: 'amber',
+        title: 'Khách gọi thanh toán',
+        message: `${payload.tableName || 'Một bàn'} muốn thanh toán`,
+      })
+    })
+  }
 
   // Check token on mount + prefetch data
   useEffect(() => {
@@ -59,6 +103,7 @@ export default function App() {
         setCurrentView('app')
         const socket = connectSocket(userData.role)
         bindSocketToStore(socket)
+        bindGlobalNotifications(socket)
       })
       .catch(() => {
         removeToken()
@@ -73,6 +118,7 @@ export default function App() {
     prefetchAll()
     const socket = connectSocket(userData.role)
     bindSocketToStore(socket)
+    bindGlobalNotifications(socket)
   }
 
   const handleLogout = () => {
@@ -108,7 +154,11 @@ export default function App() {
   const Screen = SCREENS[activeScreen] ?? DashboardPage
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
+    <div
+      className="flex h-screen overflow-hidden bg-slate-50"
+      onClick={unlockAudio}
+      onTouchStart={unlockAudio}
+    >
       <Sidebar
         active={activeScreen}
         setActive={setActiveScreen}
@@ -123,6 +173,31 @@ export default function App() {
           <Screen setActive={setActiveScreen} />
         </div>
       </main>
+      <GlobalNotifications notifications={notifications} />
+    </div>
+  )
+}
+
+function GlobalNotifications({ notifications }) {
+  if (notifications.length === 0) return null
+
+  return (
+    <div className="fixed top-4 right-4 z-50 w-[320px] space-y-2">
+      {notifications.map((item) => {
+        const tone = item.tone === 'amber'
+          ? 'border-amber-200 bg-amber-50 text-amber-700'
+          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+
+        return (
+          <div
+            key={item.id}
+            className={`rounded-2xl border p-4 shadow-elevated animate-slide-in ${tone}`}
+          >
+            <p className="text-sm font-bold">{item.title}</p>
+            <p className="text-xs mt-1 opacity-80">{item.message}</p>
+          </div>
+        )
+      })}
     </div>
   )
 }

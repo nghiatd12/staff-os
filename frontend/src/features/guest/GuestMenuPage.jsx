@@ -13,6 +13,14 @@ function formatPrice(p) {
   return new Intl.NumberFormat('vi-VN').format(p) + 'đ'
 }
 
+function formatTime(value) {
+  try {
+    return new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return ''
+  }
+}
+
 async function apiFetch(path, options = {}) {
   const res = await fetch(`${API_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -48,10 +56,10 @@ function ErrorScreen({ message }) {
   )
 }
 
-function SuccessScreen({ total, onReset }) {
+function SuccessScreen({ total, onReset, onRequestPayment, actionStatus }) {
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="text-center max-w-xs">
+    <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-slate-50 flex items-center justify-center p-6">
+      <div className="text-center max-w-xs bg-white rounded-[28px] p-6 shadow-xl shadow-emerald-100">
         <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-5">
           <svg className="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -61,6 +69,17 @@ function SuccessScreen({ total, onReset }) {
         <p className="text-slate-500 text-sm mb-1">Bếp đã nhận được order của bạn.</p>
         <p className="text-emerald-600 font-semibold text-lg mb-6">{formatPrice(total)}</p>
         <p className="text-slate-400 text-xs mb-6">Vui lòng chờ nhân viên mang món ra. Cảm ơn bạn! 🍺</p>
+        <button
+          onClick={onRequestPayment}
+          className="w-full py-3 rounded-2xl bg-slate-900 text-white font-semibold text-sm active:scale-95 transition-transform mb-3"
+        >
+          Gọi thanh toán
+        </button>
+        {actionStatus && (
+          <p className="text-xs font-medium text-emerald-700 bg-emerald-50 rounded-2xl px-3 py-2 mb-3">
+            {actionStatus}
+          </p>
+        )}
         <button
           onClick={onReset}
           className="w-full py-3 rounded-2xl bg-emerald-500 text-white font-semibold text-sm active:scale-95 transition-transform"
@@ -228,6 +247,82 @@ function getCategoryEmoji(category) {
   return map[category] || '🍽️'
 }
 
+function GuestActionBar({ onCallStaff, onRequestPayment, actionStatus }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 px-4 -mt-4 relative z-20">
+      <button
+        onClick={onCallStaff}
+        className="bg-white rounded-2xl px-4 py-3 shadow-lg shadow-emerald-900/10 border border-emerald-100 text-left active:scale-[0.98] transition-transform"
+      >
+        <span className="text-xl block mb-1">🙋</span>
+        <span className="text-sm font-bold text-slate-800 block">Gọi nhân viên</span>
+        <span className="text-[11px] text-slate-400">Cần hỗ trợ tại bàn</span>
+      </button>
+      <button
+        onClick={onRequestPayment}
+        className="bg-white rounded-2xl px-4 py-3 shadow-lg shadow-emerald-900/10 border border-amber-100 text-left active:scale-[0.98] transition-transform"
+      >
+        <span className="text-xl block mb-1">💳</span>
+        <span className="text-sm font-bold text-slate-800 block">Gọi thanh toán</span>
+        <span className="text-[11px] text-slate-400">Báo thu ngân ngay</span>
+      </button>
+      {actionStatus && (
+        <div className="col-span-2 rounded-2xl bg-slate-900 text-white px-4 py-2 text-xs font-medium text-center shadow-lg">
+          {actionStatus}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SelectionHistory({ selectedHistory, orderHistory }) {
+  if (selectedHistory.length === 0 && orderHistory.length === 0) return null
+
+  return (
+    <div className="px-4 pt-4 space-y-3">
+      {selectedHistory.length > 0 && (
+        <section className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-bold text-slate-800">Món vừa chọn</h2>
+            <span className="text-[11px] text-emerald-600 font-semibold">{selectedHistory.length} món</span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {selectedHistory.map((item) => (
+              <div key={`${item.id}-${item.at}`} className="shrink-0 rounded-2xl bg-slate-50 px-3 py-2 min-w-[132px]">
+                <p className="text-xs font-semibold text-slate-700 truncate">{item.name}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {formatPrice(item.price)} · {formatTime(item.at)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {orderHistory.length > 0 && (
+        <section className="bg-emerald-50 rounded-3xl p-4 border border-emerald-100">
+          <h2 className="text-sm font-bold text-emerald-800 mb-2">Lịch sử order</h2>
+          <div className="space-y-2">
+            {orderHistory.slice(0, 2).map((order) => (
+              <div key={order.at} className="flex items-center justify-between rounded-2xl bg-white/80 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-700 truncate">
+                    {order.items.map((i) => `${i.qty}x ${i.name}`).join(', ')}
+                  </p>
+                  <p className="text-[11px] text-slate-400">{formatTime(order.at)}</p>
+                </div>
+                <span className="text-xs font-bold text-emerald-700 shrink-0 ml-3">
+                  {formatPrice(order.total)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function GuestMenuPage({ slug, tableId }) {
@@ -240,6 +335,15 @@ export default function GuestMenuPage({ slug, tableId }) {
   const [showCart, setShowCart] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [orderTotal, setOrderTotal] = useState(0)
+  const [actionStatus, setActionStatus] = useState('')
+  const [selectedHistory, setSelectedHistory] = useState([])
+  const [orderHistory, setOrderHistory] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`staffos_guest_orders_${slug}_${tableId}`) || '[]')
+    } catch {
+      return []
+    }
+  })
 
   // Load menu on mount
   useEffect(() => {
@@ -261,6 +365,10 @@ export default function GuestMenuPage({ slug, tableId }) {
       if (existing) return prev.map((i) => i.id === item.id ? { ...i, qty: i.qty + 1 } : i)
       return [...prev, { id: item.id, name: item.name, price: item.price, qty: 1, note: '', category: item.category }]
     })
+    setSelectedHistory((prev) => [
+      { id: item.id, name: item.name, price: item.price, at: new Date().toISOString() },
+      ...prev.filter((i) => i.id !== item.id),
+    ].slice(0, 8))
   }, [])
 
   const removeFromCart = useCallback((item) => {
@@ -288,6 +396,7 @@ export default function GuestMenuPage({ slug, tableId }) {
     if (cart.length === 0) return
     setSubmitting(true)
     try {
+      const submittedItems = [...cart]
       const items = cart.map((i) => ({
         menuItemId: i.id,
         name: i.name,
@@ -300,6 +409,12 @@ export default function GuestMenuPage({ slug, tableId }) {
         body: JSON.stringify({ tableId: parseInt(tableId), items }),
       })
       setOrderTotal(res.total)
+      const nextOrderHistory = [
+        { at: new Date().toISOString(), total: res.total, items: submittedItems },
+        ...orderHistory,
+      ].slice(0, 5)
+      setOrderHistory(nextOrderHistory)
+      localStorage.setItem(`staffos_guest_orders_${slug}_${tableId}`, JSON.stringify(nextOrderHistory))
       setCart([])
       setShowCart(false)
       setState('success')
@@ -307,6 +422,38 @@ export default function GuestMenuPage({ slug, tableId }) {
       alert(err.message || 'Gửi order thất bại, vui lòng thử lại')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const showActionStatus = (message) => {
+    setActionStatus(message)
+    setTimeout(() => setActionStatus(''), 2500)
+  }
+
+  const handleCallStaff = async () => {
+    try {
+      await apiFetch(`/public/${slug}/call-staff`, {
+        method: 'POST',
+        body: JSON.stringify({ tableId: parseInt(tableId), message: 'Khách cần hỗ trợ' }),
+      })
+      showActionStatus('Đã gọi nhân viên. Nhân viên sẽ tới ngay.')
+    } catch (err) {
+      showActionStatus(err.message || 'Chưa gọi được nhân viên, vui lòng thử lại.')
+    }
+  }
+
+  const handleRequestPayment = async () => {
+    try {
+      await apiFetch(`/public/${slug}/request-payment`, {
+        method: 'POST',
+        body: JSON.stringify({
+          tableId: parseInt(tableId),
+          total: cart.reduce((sum, item) => sum + item.price * item.qty, 0) || orderTotal || 0,
+        }),
+      })
+      showActionStatus('Đã gọi thanh toán. Thu ngân đã nhận thông báo.')
+    } catch (err) {
+      showActionStatus(err.message || 'Chưa gọi được thanh toán, vui lòng thử lại.')
     }
   }
 
@@ -318,7 +465,16 @@ export default function GuestMenuPage({ slug, tableId }) {
   // ── Render states ──
   if (state === 'loading') return <LoadingScreen />
   if (state === 'error') return <ErrorScreen message={errorMsg} />
-  if (state === 'success') return <SuccessScreen total={orderTotal} onReset={handleReset} />
+  if (state === 'success') {
+    return (
+      <SuccessScreen
+        total={orderTotal}
+        onReset={handleReset}
+        onRequestPayment={handleRequestPayment}
+        actionStatus={actionStatus}
+      />
+    )
+  }
 
   const { tenant, table, menu, categories } = data
   const currentItems = menu[activeCategory] || []
@@ -330,20 +486,36 @@ export default function GuestMenuPage({ slug, tableId }) {
   return (
     <div className="min-h-screen bg-slate-50 pb-32">
       {/* Header */}
-      <div className="bg-emerald-500 text-white px-5 pt-10 pb-5 sticky top-0 z-10 shadow-md">
-        <p className="text-emerald-100 text-xs mb-0.5">{zoneLabel} · {tenant.name}</p>
-        <h1 className="text-xl font-bold">{table.name}</h1>
-        <p className="text-emerald-100 text-xs mt-0.5">Chọn món và bấm Gửi order</p>
+      <div className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 text-white px-5 pt-10 pb-8 sticky top-0 z-10 shadow-md">
+        <p className="text-emerald-100 text-xs mb-1">{zoneLabel} · {tenant.name}</p>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight">{table.name}</h1>
+            <p className="text-emerald-50 text-sm mt-1">Chọn món, gọi nhân viên hoặc thanh toán ngay tại bàn.</p>
+          </div>
+          <div className="rounded-2xl bg-white/15 px-3 py-2 text-right backdrop-blur">
+            <p className="text-[10px] text-emerald-50">Giỏ hàng</p>
+            <p className="text-sm font-bold">{cartCount} món</p>
+          </div>
+        </div>
       </div>
 
+      <GuestActionBar
+        onCallStaff={handleCallStaff}
+        onRequestPayment={handleRequestPayment}
+        actionStatus={actionStatus}
+      />
+
       {/* Category tabs */}
-      <div className="px-4 py-3 bg-white border-b border-slate-100 sticky top-[88px] z-10">
+      <div className="px-4 py-3 bg-white border-b border-slate-100 sticky top-[116px] z-10">
         <CategoryTabs
           categories={categories}
           active={activeCategory}
           onSelect={setActiveCategory}
         />
       </div>
+
+      <SelectionHistory selectedHistory={selectedHistory} orderHistory={orderHistory} />
 
       {/* Menu items */}
       <div className="px-4 pt-4 space-y-3">

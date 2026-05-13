@@ -146,12 +146,10 @@ router.post('/:slug/orders', async (req, res) => {
       source: 'guest', // đánh dấu order từ khách tự gọi
     }
 
-    // 🔥 Emit realtime → màn hình bếp + phục vụ
+    // Broadcast order khách QR tới tất cả màn hình đang online.
     const io = req.app.get('io')
-    io.to('kitchen').emit('new-order', fullOrder)
-    io.to('waiter').emit('new-order', fullOrder)
-    io.to('waiter').emit('table-updated', { id: tableId, status: 'occupied' })
-    io.to('cashier').emit('table-updated', { id: tableId, status: 'occupied' })
+    io.emit('new-order', fullOrder)
+    io.emit('table-updated', { id: tableId, status: 'occupied' })
 
     res.status(201).json({
       success: true,
@@ -161,6 +159,99 @@ router.post('/:slug/orders', async (req, res) => {
     })
   } catch (err) {
     console.error('[Public] Guest order error:', err)
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+async function getGuestActionContext(slug, tableId) {
+  const tenant = await queryOne(
+    'SELECT id, name, slug FROM tenants WHERE slug = $1',
+    [slug]
+  )
+  if (!tenant) return { error: 'Không tìm thấy quán', status: 404 }
+
+  const table = await queryOne(
+    'SELECT id, name, zone, status FROM tables WHERE id = $1 AND tenant_id = $2',
+    [tableId, tenant.id]
+  )
+  if (!table) return { error: 'Bàn không hợp lệ', status: 404 }
+
+  return { tenant, table }
+}
+
+/**
+ * POST /api/public/:slug/call-staff
+ * Khách gọi nhân viên từ QR menu. Broadcast tới tất cả clients đang online.
+ */
+router.post('/:slug/call-staff', async (req, res) => {
+  try {
+    const { slug } = req.params
+    const { tableId, message } = req.body
+
+    if (!tableId) {
+      return res.status(400).json({ error: 'Thiếu bàn' })
+    }
+
+    const context = await getGuestActionContext(slug, tableId)
+    if (context.error) {
+      return res.status(context.status).json({ error: context.error })
+    }
+
+    const payload = {
+      type: 'call-staff',
+      tenantId: context.tenant.id,
+      storeName: context.tenant.name,
+      tableId: context.table.id,
+      tableName: context.table.name,
+      tableZone: context.table.zone,
+      message: message || 'Khách cần hỗ trợ',
+      createdAt: new Date().toISOString(),
+    }
+
+    req.app.get('io').emit('guest-call-staff', payload)
+
+    res.json({ success: true, message: 'Đã gọi nhân viên' })
+  } catch (err) {
+    console.error('[Public] Call staff error:', err)
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+/**
+ * POST /api/public/:slug/request-payment
+ * Khách gọi thanh toán từ QR menu. Broadcast tới tất cả clients đang online.
+ */
+router.post('/:slug/request-payment', async (req, res) => {
+  try {
+    const { slug } = req.params
+    const { tableId, total } = req.body
+
+    if (!tableId) {
+      return res.status(400).json({ error: 'Thiếu bàn' })
+    }
+
+    const context = await getGuestActionContext(slug, tableId)
+    if (context.error) {
+      return res.status(context.status).json({ error: context.error })
+    }
+
+    const payload = {
+      type: 'request-payment',
+      tenantId: context.tenant.id,
+      storeName: context.tenant.name,
+      tableId: context.table.id,
+      tableName: context.table.name,
+      tableZone: context.table.zone,
+      total: total || 0,
+      message: 'Khách gọi thanh toán',
+      createdAt: new Date().toISOString(),
+    }
+
+    req.app.get('io').emit('guest-request-payment', payload)
+
+    res.json({ success: true, message: 'Đã gọi thanh toán' })
+  } catch (err) {
+    console.error('[Public] Request payment error:', err)
     res.status(500).json({ error: 'Lỗi server' })
   }
 })
