@@ -33,13 +33,13 @@ export default function DashboardPage({ setActiveScreen, openTenant }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-black text-emerald-700 uppercase tracking-[0.16em]">Tổng quan</p>
-          <h1 className="text-3xl font-black text-slate-950 mt-1 tracking-tight">Dashboard</h1>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Tổng quan</p>
+          <h1 className="text-2xl font-bold text-slate-800 mt-1 tracking-tight">Dashboard</h1>
           <p className="text-sm text-slate-500 mt-2">Theo dõi trạng thái đăng ký và vận hành của toàn bộ quán.</p>
         </div>
         <button
           onClick={() => setActiveScreen('add-tenant')}
-          className="px-5 py-3 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 shadow-lg shadow-emerald-900/15"
+          className="px-4 py-2.5 rounded-2xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
         >
           Thêm quán mới
         </button>
@@ -58,7 +58,7 @@ export default function DashboardPage({ setActiveScreen, openTenant }) {
             <h2 className="font-black text-slate-900 text-lg">5 quán mới nhất</h2>
             <p className="text-sm text-slate-500 mt-0.5">Các tenant vừa được tạo hoặc đăng ký gần đây.</p>
           </div>
-          <button onClick={() => setActiveScreen('tenants')} className="px-4 py-2 rounded-xl bg-white text-slate-700 font-bold border border-slate-200 hover:border-emerald-200">
+          <button onClick={() => setActiveScreen('tenants')} className="px-4 py-2 rounded-xl bg-white text-slate-600 text-sm font-medium border border-slate-200 hover:border-emerald-200">
             Xem tất cả
           </button>
         </div>

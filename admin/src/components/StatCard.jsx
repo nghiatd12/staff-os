@@ -7,11 +7,11 @@ export default function StatCard({ label, value, hint, tone = 'emerald' }) {
   }
 
   return (
-    <div className="bg-white border border-white rounded-[22px] p-5 shadow-soft ring-1 ring-slate-900/5">
+    <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-soft">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-bold text-slate-500">{label}</p>
-          <p className="text-3xl font-black text-slate-950 mt-3 tracking-tight">{value ?? 0}</p>
+          <p className="text-3xl font-black text-slate-800 mt-3 tracking-tight">{value ?? 0}</p>
         </div>
         <span className={`w-10 h-10 rounded-2xl border ${tones[tone] || tones.emerald}`} />
       </div>

@@ -3,7 +3,7 @@ import { api } from '@/lib/api'
 import { fetchMenu } from '@/lib/store'
 import Card from '@/components/ui/Card'
 import {
-  CheckCircle2, Download, FileSpreadsheet, FolderOpen, Layers, Pencil, Plus, Save, Upload, X,
+  CheckCircle2, Download, FileSpreadsheet, FolderOpen, Layers, Pencil, Plus, Save, Trash2, Upload, X,
 } from '@/components/ui/Icon'
 
 const MENU_TYPES = [
@@ -74,6 +74,15 @@ export default function MenuSettings() {
   const [newItem, setNewItem] = useState(EMPTY_ITEM)
   const [editingItemId, setEditingItemId] = useState(null)
   const [editingItem, setEditingItem] = useState(EMPTY_ITEM)
+  const [customCategories, setCustomCategories] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('staffos_menu_categories')) || []
+    } catch {
+      return []
+    }
+  })
+  const [newCategory, setNewCategory] = useState('')
+  const [editingCategory, setEditingCategory] = useState(null)
   const [importMode, setImportMode] = useState('append')
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(true)
@@ -81,8 +90,8 @@ export default function MenuSettings() {
 
   const selectedSet = sets.find((set) => set.id === selectedSetId)
   const categories = useMemo(
-    () => [...new Set(items.map((item) => item.category).filter(Boolean))],
-    [items]
+    () => [...new Set([...items.map((item) => item.category), ...customCategories].filter(Boolean))],
+    [items, customCategories]
   )
 
   const showStatus = (message) => {
@@ -120,6 +129,52 @@ export default function MenuSettings() {
     await loadSets()
     await loadItems(setId)
     await fetchMenu()
+  }
+
+  const saveCustomCategories = (nextCategories) => {
+    setCustomCategories(nextCategories)
+    localStorage.setItem('staffos_menu_categories', JSON.stringify(nextCategories))
+  }
+
+  const handleAddCategory = () => {
+    const category = newCategory.trim()
+    if (!category) return
+    if (categories.some((item) => item.toLowerCase() === category.toLowerCase())) {
+      showStatus('Danh mục này đã có.')
+      return
+    }
+    saveCustomCategories([...customCategories, category])
+    setNewItem((prev) => ({ ...prev, category }))
+    setNewCategory('')
+    showStatus('Đã thêm danh mục món.')
+  }
+
+  const handleRenameCategory = async () => {
+    const from = editingCategory?.from
+    const to = editingCategory?.to?.trim()
+    if (!from || !to) return
+    if (from !== to && categories.some((item) => item !== from && item.toLowerCase() === to.toLowerCase())) {
+      showStatus('Tên danh mục mới đã tồn tại.')
+      return
+    }
+
+    const affectedItems = items.filter((item) => item.category === from)
+    await Promise.all(affectedItems.map((item) => api.patch(`/menu/${item.id}`, { category: to })))
+    saveCustomCategories(customCategories.map((item) => (item === from ? to : item)))
+    setNewItem((prev) => ({ ...prev, category: prev.category === from ? to : prev.category }))
+    setEditingItem((prev) => ({ ...prev, category: prev.category === from ? to : prev.category }))
+    setEditingCategory(null)
+    await refreshAll(selectedSetId)
+    showStatus('Đã cập nhật danh mục.')
+  }
+
+  const handleDeleteCategory = (category) => {
+    if (items.some((item) => item.category === category)) {
+      showStatus('Danh mục đang có món, hãy chuyển món sang danh mục khác trước.')
+      return
+    }
+    saveCustomCategories(customCategories.filter((item) => item !== category))
+    showStatus('Đã xóa danh mục trống.')
   }
 
   const handleCreateSet = async () => {
@@ -347,7 +402,70 @@ export default function MenuSettings() {
                 <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
               </div>
             </div>
+          </Card>
 
+          <Card className="p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="font-bold text-slate-800">Danh mục món</h3>
+                <p className="text-sm text-slate-400 mt-0.5">Tạo và chỉnh sửa category riêng, món chỉ chọn từ danh sách này.</p>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  placeholder="VD: Món nướng"
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300"
+                />
+                <button onClick={handleAddCategory} className="px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-sm font-bold hover:bg-emerald-100">
+                  Thêm
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+              {categories.map((category) => {
+                const count = items.filter((item) => item.category === category).length
+                const editing = editingCategory?.from === category
+                return (
+                  <div key={category} className="flex items-center gap-2 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                    {editing ? (
+                      <>
+                        <input
+                          value={editingCategory.to}
+                          onChange={(e) => setEditingCategory({ ...editingCategory, to: e.target.value })}
+                          className="flex-1 min-w-0 border border-slate-200 rounded-xl px-3 py-2 text-sm"
+                        />
+                        <button onClick={handleRenameCategory} className="p-2 rounded-xl bg-emerald-600 text-white"><Save size={15} /></button>
+                        <button onClick={() => setEditingCategory(null)} className="p-2 rounded-xl bg-white text-slate-500 border border-slate-200"><X size={15} /></button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-700 truncate">{category}</p>
+                          <p className="text-[11px] text-slate-400">{count} món</p>
+                        </div>
+                        <button onClick={() => setEditingCategory({ from: category, to: category })} className="p-2 rounded-xl bg-white text-slate-500 border border-slate-200 hover:text-emerald-700">
+                          <Pencil size={15} />
+                        </button>
+                        <button onClick={() => handleDeleteCategory(category)} className="p-2 rounded-xl bg-white text-slate-400 border border-slate-200 hover:text-red-500">
+                          <Trash2 size={15} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+              {categories.length === 0 && (
+                <div className="text-sm text-slate-400 rounded-2xl bg-slate-50 p-4">Chưa có danh mục. Hãy thêm danh mục trước khi tạo món.</div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-5">
+            <div className="mb-4">
+              <h3 className="font-bold text-slate-800">Thêm món</h3>
+              <p className="text-sm text-slate-400 mt-0.5">Thông tin món ăn tách riêng với danh mục.</p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-[1fr_150px_130px] gap-3">
               <input
                 value={newItem.name}
@@ -355,13 +473,14 @@ export default function MenuSettings() {
                 placeholder="Tên món"
                 className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300"
               />
-              <input
+              <select
                 value={newItem.category}
                 onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-                placeholder="Danh mục"
-                list="menu-categories"
                 className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-300"
-              />
+              >
+                <option value="">Chọn danh mục</option>
+                {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+              </select>
               <input
                 type="number"
                 value={newItem.price}
@@ -382,9 +501,6 @@ export default function MenuSettings() {
                 <Plus size={16} />
                 Thêm món
               </button>
-              <datalist id="menu-categories">
-                {categories.map((category) => <option key={category} value={category} />)}
-              </datalist>
             </div>
           </Card>
 
@@ -404,7 +520,9 @@ export default function MenuSettings() {
                       {editing ? (
                         <div className="grid grid-cols-1 md:grid-cols-[1fr_150px_130px_auto] gap-3 items-center">
                           <input value={editingItem.name} onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })} className="border border-slate-200 rounded-xl px-3 py-2 text-sm" />
-                          <input value={editingItem.category} onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })} className="border border-slate-200 rounded-xl px-3 py-2 text-sm" />
+                          <select value={editingItem.category} onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })} className="border border-slate-200 rounded-xl px-3 py-2 text-sm">
+                            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+                          </select>
                           <input type="number" value={editingItem.price} onChange={(e) => setEditingItem({ ...editingItem, price: e.target.value })} className="border border-slate-200 rounded-xl px-3 py-2 text-sm" />
                           <div className="flex gap-1">
                             <button onClick={handleSaveItem} className="p-2 rounded-xl bg-emerald-600 text-white"><Save size={16} /></button>

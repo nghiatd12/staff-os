@@ -51,7 +51,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex bg-[#eef4f1]">
+    <div className="min-h-screen flex bg-slate-50">
       <Sidebar
         activeScreen={activeScreen}
         setActiveScreen={setActiveScreen}
@@ -60,7 +60,7 @@ export default function App() {
       />
       <main className="flex-1 min-w-0 overflow-auto">
         {toast && (
-          <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl bg-slate-950 text-white text-sm font-bold shadow-soft border border-white/10">
+          <div className="fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl bg-emerald-600 text-white text-sm font-bold shadow-soft">
             {toast}
           </div>
         )}
