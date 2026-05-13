@@ -50,9 +50,10 @@ export default function TenantDetailPage({ tenantId, setActiveScreen, toast }) {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <button onClick={() => setActiveScreen('tenants')} className="text-sm text-emerald-700 font-bold mb-2">Quay lại danh sách</button>
-          <h1 className="text-2xl font-black text-slate-900">{tenant.name}</h1>
-          <p className="text-sm text-slate-400 mt-1">{tenant.address || 'Chưa có địa chỉ'}</p>
+          <button onClick={() => setActiveScreen('tenants')} className="text-sm text-emerald-700 font-black mb-3">Quay lại danh sách</button>
+          <p className="text-sm font-black text-emerald-700 uppercase tracking-[0.16em]">Chi tiết quán</p>
+          <h1 className="text-3xl font-black text-slate-950 mt-1 tracking-tight">{tenant.name}</h1>
+          <p className="text-sm text-slate-500 mt-2">{tenant.address || 'Chưa có địa chỉ'}</p>
         </div>
         <StatusBadge status={tenant.status} />
       </div>
@@ -64,7 +65,7 @@ export default function TenantDetailPage({ tenantId, setActiveScreen, toast }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-soft">
+        <div className="bg-white border border-white rounded-[22px] p-5 shadow-soft ring-1 ring-slate-900/5">
           <h2 className="font-black text-slate-800 mb-4">Thông tin quán</h2>
           <Info label="Slug" value={tenant.slug} />
           <Info label="Loại" value={tenant.type} />
@@ -73,7 +74,7 @@ export default function TenantDetailPage({ tenantId, setActiveScreen, toast }) {
           <Info label="Nguồn đăng ký" value={tenant.registered_by} />
         </div>
 
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-soft">
+        <div className="bg-white border border-white rounded-[22px] p-5 shadow-soft ring-1 ring-slate-900/5">
           <h2 className="font-black text-slate-800 mb-4">Thông tin chủ quán</h2>
           <Info label="Tên" value={owner?.name || tenant.owner_name} />
           <Info label="SĐT" value={owner?.phone || tenant.phone} />
@@ -82,7 +83,7 @@ export default function TenantDetailPage({ tenantId, setActiveScreen, toast }) {
         </div>
       </div>
 
-      <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-soft">
+      <div className="bg-white border border-white rounded-[22px] p-5 shadow-soft ring-1 ring-slate-900/5">
         <h2 className="font-black text-slate-800 mb-4">Cập nhật vận hành</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Select label="Trạng thái" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} options={[
@@ -97,10 +98,10 @@ export default function TenantDetailPage({ tenantId, setActiveScreen, toast }) {
           ]} />
         </div>
         <label className="block text-sm font-bold text-slate-700 mt-4 mb-1.5">Ghi chú</label>
-        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={4} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-400" />
+        <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={4} className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400" />
         <div className="flex gap-3 mt-4">
-          <button onClick={save} className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700">Lưu thay đổi</button>
-          <button onClick={remove} className="px-5 py-2.5 rounded-xl bg-red-50 text-red-600 font-bold hover:bg-red-100">Xóa quán</button>
+          <button onClick={save} className="px-6 py-3 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 shadow-lg shadow-emerald-900/15">Lưu thay đổi</button>
+          <button onClick={remove} className="px-6 py-3 rounded-2xl bg-rose-50 text-rose-600 font-black hover:bg-rose-100">Xóa quán</button>
         </div>
       </div>
     </div>
@@ -120,7 +121,7 @@ function Select({ label, value, onChange, options }) {
   return (
     <div>
       <label className="block text-sm font-bold text-slate-700 mb-1.5">{label}</label>
-      <select value={value} onChange={onChange} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-400">
+      <select value={value} onChange={onChange} className="w-full px-4 py-3 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400">
         {options.map(([optionValue, labelText]) => <option key={optionValue} value={optionValue}>{labelText}</option>)}
       </select>
     </div>

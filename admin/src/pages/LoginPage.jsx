@@ -24,24 +24,52 @@ export default function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-5">
-      <form onSubmit={submit} className="w-full max-w-md bg-white border border-slate-100 rounded-3xl p-8 shadow-soft">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-11 h-11 rounded-full bg-emerald-500" />
+    <div className="min-h-screen bg-[#edf5f1] flex items-center justify-center p-5">
+      <div className="w-full max-w-5xl grid lg:grid-cols-[1fr_440px] bg-white rounded-[30px] shadow-soft overflow-hidden border border-white ring-1 ring-slate-900/5">
+        <div className="hidden lg:flex flex-col justify-between bg-slate-950 p-10 text-white">
           <div>
-            <h1 className="text-2xl font-black text-slate-900">StaffOS Admin</h1>
-            <p className="text-sm text-slate-400">Quản trị nền tảng</p>
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center mb-8">
+              <span className="w-4 h-4 rounded-full bg-white" />
+            </div>
+            <p className="text-sm font-bold text-emerald-200 uppercase tracking-[0.18em]">Platform Control</p>
+            <h1 className="text-4xl font-black mt-4 leading-tight tracking-tight">Quản lý toàn bộ quán StaffOS trong một nơi.</h1>
+            <p className="text-slate-400 mt-4 leading-7">Kích hoạt quán, theo dõi trạng thái, tạo tenant thủ công và kiểm soát vận hành nền tảng.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="rounded-2xl bg-white/8 border border-white/10 p-4">
+              <p className="text-2xl font-black">24h</p>
+              <p className="text-xs text-slate-400 mt-1">duyệt quán</p>
+            </div>
+            <div className="rounded-2xl bg-white/8 border border-white/10 p-4">
+              <p className="text-2xl font-black">Admin</p>
+              <p className="text-xs text-slate-400 mt-1">nội bộ</p>
+            </div>
+            <div className="rounded-2xl bg-white/8 border border-white/10 p-4">
+              <p className="text-2xl font-black">Live</p>
+              <p className="text-xs text-slate-400 mt-1">Render API</p>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4">
+        <form onSubmit={submit} className="p-8 lg:p-10">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500 flex items-center justify-center">
+              <span className="w-4 h-4 rounded-full bg-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-slate-950 tracking-tight">StaffOS Admin</h2>
+              <p className="text-sm text-slate-400">Đăng nhập quản trị nền tảng</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1.5">Email admin</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+              className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400 transition"
               placeholder="admin@staffos.vn"
             />
           </div>
@@ -51,7 +79,7 @@ export default function LoginPage({ onLogin }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-400"
+              className="w-full px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-400 transition"
               placeholder="Nhập mật khẩu"
             />
           </div>
@@ -61,11 +89,12 @@ export default function LoginPage({ onLogin }) {
 
         <button
           disabled={loading}
-          className="mt-6 w-full py-3 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 disabled:opacity-60"
+          className="mt-6 w-full py-3.5 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 disabled:opacity-60 shadow-lg shadow-emerald-900/15"
         >
           {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
-      </form>
+        </form>
+      </div>
     </div>
   )
 }
