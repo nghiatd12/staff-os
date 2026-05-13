@@ -19,7 +19,13 @@ const httpServer = createServer(app)
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
   .map((o) => o.trim())
-for (const origin of ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174']) {
+for (const origin of [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5174',
+  'https://admin-tau-tawny.vercel.app',
+]) {
   if (!allowedOrigins.includes(origin)) allowedOrigins.push(origin)
 }
 if (process.env.ADMIN_DASHBOARD_URL) {
