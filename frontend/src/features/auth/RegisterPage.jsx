@@ -38,6 +38,7 @@ export default function RegisterPage({ onNavigate }) {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -54,8 +55,7 @@ export default function RegisterPage({ onNavigate }) {
         tableCount: Number(form.tableCount) || 10,
         type: form.type,
       })
-      alert('Đăng ký thành công! Vui lòng đăng nhập.')
-      onNavigate?.('login')
+      setSuccess(true)
     } catch (err) {
       setError(err.message || 'Đăng ký thất bại')
     } finally {
@@ -77,6 +77,26 @@ export default function RegisterPage({ onNavigate }) {
           <h1 className="text-2xl font-bold text-slate-800">Đăng ký quán mới</h1>
           <p className="text-sm text-slate-400 mt-1">Tạo tài khoản chủ quán + thiết lập quán</p>
         </div>
+
+        {success ? (
+          <Card className="p-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+              <Check size={28} className="text-emerald-600" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-800">Đăng ký thành công!</h2>
+            <p className="text-sm text-slate-500 mt-3 leading-6">
+              Tài khoản của bạn đang chờ được kích hoạt. Chúng tôi sẽ liên hệ xác nhận trong vòng 24 giờ.
+            </p>
+            <button
+              onClick={() => onNavigate?.('login')}
+              className="mt-6 w-full py-3 rounded-2xl text-sm font-semibold text-white transition-all hover:opacity-90"
+              style={{ backgroundColor: '#10b981' }}
+            >
+              Quay lại đăng nhập
+            </button>
+          </Card>
+        ) : (
+        <>
 
         {/* Progress indicator */}
         <div className="flex items-center justify-center gap-2 mb-6">
@@ -311,6 +331,8 @@ export default function RegisterPage({ onNavigate }) {
             </button>
           </p>
         </Card>
+        </>
+        )}
       </div>
     </div>
   )

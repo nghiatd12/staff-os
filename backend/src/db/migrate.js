@@ -159,6 +159,29 @@ async function migrate() {
   `)
 
   await pool.query(`
+    DO $$
+    DECLARE
+      had_status BOOLEAN;
+    BEGIN
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'tenants' AND column_name = 'status'
+      ) INTO had_status;
+
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'pending';
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS notes TEXT;
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS owner_name VARCHAR(255);
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS owner_email VARCHAR(255);
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS registered_by VARCHAR(20) DEFAULT 'self';
+
+      IF NOT had_status THEN
+        UPDATE tenants SET status = 'active';
+      END IF;
+    END $$;
+  `)
+
+  await pool.query(`
     ALTER TABLE menu_items
       ADD COLUMN IF NOT EXISTS menu_set_id INT REFERENCES menu_sets(id) ON DELETE SET NULL;
 

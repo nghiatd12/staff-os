@@ -10,6 +10,7 @@ import tablesRoutes from './routes/tables.js'
 import menuRoutes from './routes/menu.js'
 import ordersRoutes from './routes/orders.js'
 import publicRoutes from './routes/public.js'
+import adminRoutes from './routes/admin.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -18,8 +19,13 @@ const httpServer = createServer(app)
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173,http://127.0.0.1:5173')
   .split(',')
   .map((o) => o.trim())
-for (const origin of ['http://localhost:5173', 'http://127.0.0.1:5173']) {
+for (const origin of ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174']) {
   if (!allowedOrigins.includes(origin)) allowedOrigins.push(origin)
+}
+if (process.env.ADMIN_DASHBOARD_URL) {
+  for (const origin of process.env.ADMIN_DASHBOARD_URL.split(',').map((o) => o.trim()).filter(Boolean)) {
+    if (!allowedOrigins.includes(origin)) allowedOrigins.push(origin)
+  }
 }
 
 const corsOptions = {
@@ -48,6 +54,7 @@ app.use('/api/tables', tablesRoutes)
 app.use('/api/menu', menuRoutes)
 app.use('/api/orders', ordersRoutes)
 app.use('/api/public', publicRoutes) // Public routes — không cần auth (QR menu khách)
+app.use('/api/admin', adminRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

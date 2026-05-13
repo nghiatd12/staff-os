@@ -12,7 +12,7 @@ const router = Router()
  */
 router.post('/register', async (req, res) => {
   try {
-    const { name, phone, password, restaurantName, address, tableCount, type } = req.body
+    const { name, phone, password, restaurantName, address, tableCount, type, email } = req.body
 
     // Validate
     if (!name || !phone || !password || !restaurantName) {
@@ -35,9 +35,11 @@ router.post('/register', async (req, res) => {
 
     // Tạo tenant
     const { rows: [tenant] } = await query(
-      `INSERT INTO tenants (name, slug, address, phone, type, table_count)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [restaurantName, slug, address || '', phone, type || 'beer', tableCount || 15]
+      `INSERT INTO tenants
+        (name, slug, address, phone, type, table_count, status, owner_name, owner_email, registered_by)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7, $8, 'self')
+       RETURNING id`,
+      [restaurantName, slug, address || '', phone, type || 'beer', tableCount || 15, name, email || null]
     )
 
     // Tạo user chủ quán
@@ -58,7 +60,7 @@ router.post('/register', async (req, res) => {
     }
 
     res.status(201).json({
-      message: 'Đăng ký thành công',
+      message: 'Đăng ký thành công! Tài khoản của bạn đang chờ được kích hoạt.',
       tenant: { id: tenant.id, name: restaurantName, slug },
     })
   } catch (err) {
@@ -81,9 +83,9 @@ router.post('/login', async (req, res) => {
 
     // Tìm user
     const user = await queryOne(
-      `SELECT u.*, t.name as store_name, t.slug as store_slug
+      `SELECT u.*, t.name as store_name, t.slug as store_slug, t.status as tenant_status
        FROM users u JOIN tenants t ON u.tenant_id = t.id
-       WHERE u.phone = $1 AND u.is_active = true`,
+       WHERE u.phone = $1 AND u.is_active = true AND t.deleted_at IS NULL`,
       [phone]
     )
 
@@ -95,6 +97,14 @@ router.post('/login', async (req, res) => {
     const valid = await bcrypt.compare(password, user.password_hash)
     if (!valid) {
       return res.status(401).json({ error: 'Mật khẩu không đúng' })
+    }
+
+    if (user.tenant_status === 'pending') {
+      return res.status(403).json({ error: 'Tài khoản đang chờ kích hoạt. Vui lòng liên hệ StaffOS.' })
+    }
+
+    if (user.tenant_status === 'inactive') {
+      return res.status(403).json({ error: 'Tài khoản đã bị tạm khóa. Vui lòng liên hệ hỗ trợ.' })
     }
 
     // Tạo JWT token (7 ngày)
