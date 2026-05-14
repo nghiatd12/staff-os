@@ -36,13 +36,26 @@ const SCREENS = {
   settings:   SettingsPage,
 }
 
+function getScreenFromHash() {
+  const screen = window.location.hash.replace(/^#\/?/, '')
+  return SCREENS[screen] ? screen : 'dashboard'
+}
+
 export default function App() {
   const [currentView, setCurrentView] = useState('loading')
   const [user, setUser] = useState(null)
-  const [activeScreen, setActiveScreen] = useState('dashboard')
+  const [activeScreen, setActiveScreenState] = useState(getScreenFromHash)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [audioReady, setAudioReady] = useState(false)
+
+  const setActiveScreen = (screen) => {
+    if (!SCREENS[screen]) return
+    setActiveScreenState(screen)
+    if (window.location.hash !== `#${screen}`) {
+      window.history.replaceState(null, '', `#${screen}`)
+    }
+  }
 
   const enableAudio = () => {
     Promise.resolve(unlockAudio()).then(() => {
@@ -119,6 +132,14 @@ export default function App() {
         removeUser()
         setCurrentView('login')
       })
+  }, [])
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActiveScreenState(getScreenFromHash())
+    }
+    window.addEventListener('hashchange', handleHashChange)
+    return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
   const handleLogin = async (userData) => {
