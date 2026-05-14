@@ -71,6 +71,18 @@ async function migrate() {
     );
     CREATE INDEX IF NOT EXISTS idx_menu_sets_tenant ON menu_sets(tenant_id);
 
+    CREATE TABLE IF NOT EXISTS menu_categories (
+      id            SERIAL PRIMARY KEY,
+      tenant_id     INT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      menu_set_id   INT REFERENCES menu_sets(id) ON DELETE CASCADE,
+      name          VARCHAR(100) NOT NULL,
+      sort_order    INT DEFAULT 0,
+      created_at    TIMESTAMP DEFAULT NOW(),
+      updated_at    TIMESTAMP DEFAULT NOW(),
+      UNIQUE (tenant_id, menu_set_id, name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_menu_categories_set ON menu_categories(tenant_id, menu_set_id);
+
     CREATE TABLE IF NOT EXISTS menu_items (
       id            SERIAL PRIMARY KEY,
       tenant_id     INT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -202,6 +214,27 @@ async function migrate() {
       AND ms.is_active = true;
 
     CREATE INDEX IF NOT EXISTS idx_menu_set ON menu_items(tenant_id, menu_set_id);
+
+    CREATE TABLE IF NOT EXISTS menu_categories (
+      id            SERIAL PRIMARY KEY,
+      tenant_id     INT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      menu_set_id   INT REFERENCES menu_sets(id) ON DELETE CASCADE,
+      name          VARCHAR(100) NOT NULL,
+      sort_order    INT DEFAULT 0,
+      created_at    TIMESTAMP DEFAULT NOW(),
+      updated_at    TIMESTAMP DEFAULT NOW(),
+      UNIQUE (tenant_id, menu_set_id, name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_menu_categories_set ON menu_categories(tenant_id, menu_set_id);
+
+    INSERT INTO menu_categories (tenant_id, menu_set_id, name, sort_order)
+    SELECT tenant_id, menu_set_id, category, MIN(sort_order)
+    FROM menu_items
+    WHERE menu_set_id IS NOT NULL
+      AND category IS NOT NULL
+      AND TRIM(category) <> ''
+    GROUP BY tenant_id, menu_set_id, category
+    ON CONFLICT (tenant_id, menu_set_id, name) DO NOTHING;
   `)
 
   console.log('✅ All tables created successfully!')

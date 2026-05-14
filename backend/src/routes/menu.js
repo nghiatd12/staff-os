@@ -13,6 +13,49 @@ function groupMenu(items) {
   return { menu, categories: Object.keys(menu) }
 }
 
+async function listCategories(tenantId, menuSetId) {
+  return queryAll(
+    `SELECT
+       mc.id,
+       mc.name,
+       mc.sort_order,
+       COUNT(mi.id)::int AS item_count
+     FROM menu_categories mc
+     LEFT JOIN menu_items mi
+       ON mi.tenant_id = mc.tenant_id
+      AND mi.menu_set_id = mc.menu_set_id
+      AND mi.category = mc.name
+     WHERE mc.tenant_id = $1 AND mc.menu_set_id = $2
+     GROUP BY mc.id
+     ORDER BY mc.sort_order, mc.name`,
+    [tenantId, menuSetId]
+  )
+}
+
+async function ensureCategory(tenantId, menuSetId, name) {
+  const categoryName = String(name || '').trim()
+  if (!categoryName) return null
+
+  const existing = await queryOne(
+    'SELECT * FROM menu_categories WHERE tenant_id = $1 AND menu_set_id = $2 AND LOWER(name) = LOWER($3)',
+    [tenantId, menuSetId, categoryName]
+  )
+  if (existing) return existing
+
+  const { rows: [category] } = await query(
+    `INSERT INTO menu_categories (tenant_id, menu_set_id, name, sort_order)
+     VALUES (
+       $1,
+       $2,
+       $3,
+       COALESCE((SELECT MAX(sort_order) + 1 FROM menu_categories WHERE tenant_id = $1 AND menu_set_id = $2), 0)
+     )
+     RETURNING *`,
+    [tenantId, menuSetId, categoryName]
+  )
+  return category
+}
+
 async function resolveTenantId(req) {
   let tenantId = null
 
@@ -194,9 +237,51 @@ router.get('/sets/:setId/items', authenticate, authorize('owner', 'manager'), as
        ORDER BY category, sort_order, name`,
       [req.user.tenantId, req.params.setId]
     )
-    res.json({ set, items, ...groupMenu(items) })
+    const categoryRows = await listCategories(req.user.tenantId, req.params.setId)
+    res.json({ set, items, categoryRows, ...groupMenu(items) })
   } catch (err) {
     console.error('[Menu] Get set items error:', err)
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+router.get('/sets/:setId/categories', authenticate, authorize('owner', 'manager'), async (req, res) => {
+  try {
+    const set = await queryOne(
+      'SELECT id FROM menu_sets WHERE id = $1 AND tenant_id = $2',
+      [req.params.setId, req.user.tenantId]
+    )
+    if (!set) return res.status(404).json({ error: 'Không tìm thấy bộ menu' })
+
+    const categories = await listCategories(req.user.tenantId, req.params.setId)
+    res.json({ categories })
+  } catch (err) {
+    console.error('[Menu] List categories error:', err)
+    res.status(500).json({ error: 'Lỗi server' })
+  }
+})
+
+router.post('/sets/:setId/categories', authenticate, authorize('owner', 'manager'), async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim()
+    if (!name) return res.status(400).json({ error: 'Nhập tên danh mục' })
+
+    const set = await queryOne(
+      'SELECT id FROM menu_sets WHERE id = $1 AND tenant_id = $2',
+      [req.params.setId, req.user.tenantId]
+    )
+    if (!set) return res.status(404).json({ error: 'Không tìm thấy bộ menu' })
+
+    const existing = await queryOne(
+      'SELECT id FROM menu_categories WHERE tenant_id = $1 AND menu_set_id = $2 AND LOWER(name) = LOWER($3)',
+      [req.user.tenantId, req.params.setId, name]
+    )
+    if (existing) return res.status(409).json({ error: 'Danh mục đã có' })
+
+    const category = await ensureCategory(req.user.tenantId, req.params.setId, name)
+    res.status(201).json({ category })
+  } catch (err) {
+    console.error('[Menu] Create category error:', err)
     res.status(500).json({ error: 'Lỗi server' })
   }
 })
@@ -211,6 +296,7 @@ router.post('/sets/:setId/items', authenticate, authorize('owner', 'manager'), a
       [req.params.setId, req.user.tenantId]
     )
     if (!set) return res.status(404).json({ error: 'Không tìm thấy bộ menu' })
+    await ensureCategory(req.user.tenantId, req.params.setId, category)
 
     const { rows: [item] } = await query(
       `INSERT INTO menu_items (tenant_id, menu_set_id, name, category, price, description, available, image_url)
@@ -258,6 +344,7 @@ router.post('/sets/:setId/import', authenticate, authorize('owner', 'manager'), 
         skipped.push({ row: index + 2, name, reason: 'Thiếu tên, danh mục hoặc giá' })
         continue
       }
+      await ensureCategory(req.user.tenantId, req.params.setId, category)
 
       const { rows: [item] } = await query(
         `INSERT INTO menu_items (tenant_id, menu_set_id, name, category, price, description, available, sort_order, image_url)
@@ -288,6 +375,7 @@ router.post('/', authenticate, authorize('owner', 'manager'), async (req, res) =
       ? await queryOne('SELECT id FROM menu_sets WHERE id = $1 AND tenant_id = $2', [menuSetId, req.user.tenantId])
       : await ensureDefaultMenuSet(req.user.tenantId)
     if (!menuSet) return res.status(404).json({ error: 'Không tìm thấy bộ menu' })
+    await ensureCategory(req.user.tenantId, menuSet.id, category)
 
     const { rows: [item] } = await query(
       `INSERT INTO menu_items (tenant_id, menu_set_id, name, category, price, description, image_url)

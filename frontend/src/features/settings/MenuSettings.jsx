@@ -259,6 +259,7 @@ export default function MenuSettings() {
   const [sets, setSets] = useState([])
   const [selectedSetId, setSelectedSetId] = useState(null)
   const [items, setItems] = useState([])
+  const [categoryRows, setCategoryRows] = useState([])
   const [activeCategory, setActiveCategory] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [newItem, setNewItem] = useState(EMPTY_ITEM)
@@ -269,11 +270,8 @@ export default function MenuSettings() {
   const [savingItem, setSavingItem] = useState(false)
   const [editingItemId, setEditingItemId] = useState(null)
   const [editingItem, setEditingItem] = useState(EMPTY_ITEM)
-  const [customCategories, setCustomCategories] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('staffos_menu_categories')) || [] }
-    catch { return [] }
-  })
   const [newCategory, setNewCategory] = useState('')
+  const [newCategoryError, setNewCategoryError] = useState('')
   const [importMode, setImportMode] = useState('append')
   const [showNewSet, setShowNewSet] = useState(false)
   const [newSet, setNewSet] = useState({ name: '', type: 'regular', description: '' })
@@ -283,8 +281,8 @@ export default function MenuSettings() {
 
   const selectedSet = sets.find((s) => s.id === selectedSetId)
   const categories = useMemo(
-    () => [...new Set([...items.map((i) => i.category), ...customCategories].filter(Boolean))],
-    [items, customCategories]
+    () => categoryRows.map((category) => category.name),
+    [categoryRows]
   )
   const filteredItems = activeCategory === 'all' ? items : items.filter((i) => i.category === activeCategory)
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE))
@@ -301,9 +299,10 @@ export default function MenuSettings() {
   }
 
   const loadItems = async (setId) => {
-    if (!setId) { setItems([]); return }
+    if (!setId) { setItems([]); setCategoryRows([]); return }
     const data = await api.get(`/menu/sets/${setId}/items`)
     setItems(data.items || [])
+    setCategoryRows(data.categoryRows || [])
   }
 
   useEffect(() => {
@@ -331,19 +330,25 @@ export default function MenuSettings() {
     await loadSets(); await loadItems(setId); await fetchMenu()
   }
 
-  const saveCategories = (next) => {
-    setCustomCategories(next)
-    localStorage.setItem('staffos_menu_categories', JSON.stringify(next))
-  }
-
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     const cat = newCategory.trim()
-    if (!cat) return
-    if (categories.some((c) => c.toLowerCase() === cat.toLowerCase())) { toast('Danh mục đã có.'); return }
-    saveCategories([...customCategories, cat])
-    setNewItem((p) => ({ ...p, category: cat }))
-    setNewCategory('')
-    toast('Đã thêm danh mục.')
+    setNewCategoryError('')
+    if (!selectedSetId) { setNewCategoryError('Chọn bộ menu trước.'); return }
+    if (!cat) { setNewCategoryError('Nhập tên danh mục.'); return }
+    if (categories.some((c) => c.toLowerCase() === cat.toLowerCase())) {
+      setNewCategoryError('Danh mục đã có.')
+      return
+    }
+
+    try {
+      const data = await api.post(`/menu/sets/${selectedSetId}/categories`, { name: cat })
+      setCategoryRows((prev) => [...prev, { ...data.category, item_count: 0 }])
+      setNewItem((p) => ({ ...p, category: cat }))
+      setActiveCategory(cat)
+      setNewCategory('')
+    } catch (err) {
+      setNewCategoryError(err.message || 'Không thêm được danh mục.')
+    }
   }
 
   const handleCreateSet = async () => {
@@ -526,13 +531,19 @@ export default function MenuSettings() {
             <div className="flex gap-1.5 mb-2">
               <input
                 value={newCategory}
-                onChange={(e) => setNewCategory(e.target.value)}
+                onChange={(e) => {
+                  setNewCategory(e.target.value)
+                  if (newCategoryError) setNewCategoryError('')
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
                 placeholder="Thêm danh mục..."
                 className={inputCls + ' flex-1 min-w-0'}
               />
               <button onClick={handleAddCategory} className="px-2.5 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100">+</button>
             </div>
+            {newCategoryError && (
+              <p className="text-xs font-medium text-red-500 mb-2">{newCategoryError}</p>
+            )}
             <div className="space-y-1">
               <button
                 onClick={() => setActiveCategory('all')}
@@ -543,8 +554,9 @@ export default function MenuSettings() {
                 <span>Tất cả</span>
                 <span className="text-xs text-slate-400">{items.length}</span>
               </button>
-              {categories.map((cat) => {
-                const count = items.filter((i) => i.category === cat).length
+              {categoryRows.map((category) => {
+                const cat = category.name
+                const count = category.item_count ?? items.filter((i) => i.category === cat).length
                 return (
                   <button
                     key={cat}
