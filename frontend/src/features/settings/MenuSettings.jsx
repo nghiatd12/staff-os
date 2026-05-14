@@ -15,6 +15,7 @@ const MENU_TYPES = [
 ]
 
 const EMPTY_ITEM = { name: '', category: '', price: '', description: '', available: true }
+const ITEMS_PER_PAGE = 10
 
 function formatPrice(v) {
   return new Intl.NumberFormat('vi-VN').format(Number(v || 0)) + 'đ'
@@ -107,6 +108,7 @@ export default function MenuSettings() {
   const [selectedSetId, setSelectedSetId] = useState(null)
   const [items, setItems] = useState([])
   const [activeCategory, setActiveCategory] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
   const [newItem, setNewItem] = useState(EMPTY_ITEM)
   const [editingItemId, setEditingItemId] = useState(null)
   const [editingItem, setEditingItem] = useState(EMPTY_ITEM)
@@ -128,6 +130,10 @@ export default function MenuSettings() {
     [items, customCategories]
   )
   const filteredItems = activeCategory === 'all' ? items : items.filter((i) => i.category === activeCategory)
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE))
+  const pageStart = (currentPage - 1) * ITEMS_PER_PAGE
+  const pageEnd = Math.min(pageStart + ITEMS_PER_PAGE, filteredItems.length)
+  const paginatedItems = filteredItems.slice(pageStart, pageEnd)
 
   const toast = (msg) => { setStatus(msg); setTimeout(() => setStatus(''), 2500) }
 
@@ -149,6 +155,14 @@ export default function MenuSettings() {
   }, [])
 
   useEffect(() => { loadItems(selectedSetId).catch((e) => toast(e.message)) }, [selectedSetId])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedSetId, activeCategory])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
 
   const refresh = async (setId = selectedSetId) => {
     await loadSets(); await loadItems(setId); await fetchMenu()
@@ -236,7 +250,7 @@ export default function MenuSettings() {
   const inputCls = 'border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 bg-white'
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full overflow-hidden p-6 lg:p-8 fade-in flex flex-col gap-5">
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between gap-3 flex-shrink-0">
         <div>
@@ -436,7 +450,7 @@ export default function MenuSettings() {
           </div>
 
           {/* Table */}
-          <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-slate-100 shadow-sm">
+          <div className="flex-1 min-h-0 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col">
             {filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full py-16">
                 <p className="text-3xl mb-3">🍽️</p>
@@ -446,18 +460,20 @@ export default function MenuSettings() {
                 <p className="text-slate-400 text-xs mt-1">Thêm món thủ công hoặc import Excel</p>
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-slate-50/90 backdrop-blur-sm">
-                  <tr className="border-b border-slate-100">
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Tên món</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Danh mục</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Giá</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-4 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredItems.map((item) => {
+              <>
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <table className="w-full text-sm table-fixed">
+                    <thead className="sticky top-0 bg-slate-50/95 backdrop-blur-sm z-10">
+                      <tr className="border-b border-slate-100">
+                        <th className="w-[34%] text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Tên món</th>
+                        <th className="w-[22%] text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Danh mục</th>
+                        <th className="w-[16%] text-right px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Giá</th>
+                        <th className="w-[16%] text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Trạng thái</th>
+                        <th className="w-[12%] px-4 py-3" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {paginatedItems.map((item) => {
                     const editing = editingItemId === item.id
                     return (
                       <tr key={item.id} className="hover:bg-slate-50/60 transition-colors group">
@@ -551,9 +567,35 @@ export default function MenuSettings() {
                         )}
                       </tr>
                     )
-                  })}
-                </tbody>
-              </table>
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 bg-white">
+                  <p className="text-xs text-slate-400">
+                    Hiển thị {pageStart + 1}-{pageEnd} trong {filteredItems.length} món
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white transition-colors"
+                    >
+                      Trước
+                    </button>
+                    <span className="min-w-20 text-center text-xs font-semibold text-slate-500">
+                      {currentPage}/{totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white transition-colors"
+                    >
+                      Sau
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

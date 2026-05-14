@@ -14,6 +14,7 @@ import OrderPage      from '@/features/order/OrderPage'
 import KitchenPage    from '@/features/kitchen/KitchenPage'
 import CashierPage    from '@/features/cashier/CashierPage'
 import QrMenuPage     from '@/features/qr-menu/QrMenuPage'
+import MenuSettings   from '@/features/settings/MenuSettings'
 import StaffPage      from '@/features/staff/StaffPage'
 import CustomersPage  from '@/features/customers/CustomersPage'
 import SettingsPage   from '@/features/settings/SettingsPage'
@@ -29,6 +30,7 @@ const SCREENS = {
   kitchen:    KitchenPage,
   cashier:    CashierPage,
   'qr-menu':  QrMenuPage,
+  menu:       MenuSettings,
   staff:      StaffPage,
   customers:  CustomersPage,
   settings:   SettingsPage,

@@ -12,6 +12,7 @@ const ICON_MAP = {
   kitchen: ChefHat,
   cashier: CreditCard,
   'qr-menu': QrCode,
+  menu: ClipboardList,
   staff: Users,
   customers: Heart,
   settings: Settings,

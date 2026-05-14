@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import {
-  Settings, Table2, ClipboardList, Printer, Bell, Shield, Plus, Trash2, Pencil
+  Settings, Table2, Printer, Bell, Shield, Plus, Trash2, Pencil
 } from '@/components/ui/Icon'
 import Card from '@/components/ui/Card'
-import MenuSettings from './MenuSettings'
 
 const TABS = [
   { id: 'general',  label: 'Thông tin chung', Icon: Settings },
   { id: 'zones',    label: 'Khu vực & Bàn',   Icon: Table2 },
-  { id: 'menu',     label: 'Quản lý menu',    Icon: ClipboardList },
   { id: 'printer',  label: 'Cài đặt in',      Icon: Printer },
   { id: 'notify',   label: 'Thông báo',       Icon: Bell },
   { id: 'roles',    label: 'Phân quyền',      Icon: Shield },
@@ -211,9 +209,7 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {activeTab === 'menu' && <MenuSettings />}
-
-          {activeTab !== 'zones' && activeTab !== 'general' && activeTab !== 'menu' && (
+          {activeTab !== 'zones' && activeTab !== 'general' && (
             <Card className="p-8 text-center">
               <div className="w-16 h-16 rounded-3xl bg-slate-50 flex items-center justify-center mx-auto mb-4">
                 <Settings size={28} className="text-slate-300" />
