@@ -106,12 +106,12 @@ function SetCard({ set, active, onClick, onActivate }) {
           </p>
         </div>
         {set.is_active
-          ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500 text-white shrink-0">Live</span>
+          ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500 text-white shrink-0">Đang dùng</span>
           : <span
               onClick={(e) => { e.stopPropagation(); onActivate(set.id) }}
               className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 hover:bg-emerald-50 hover:text-emerald-700 transition-colors shrink-0"
             >
-              Kích hoạt
+              Dùng menu
             </span>
         }
       </div>
@@ -126,6 +126,7 @@ function SetCard({ set, active, onClick, onActivate }) {
 
 function AddItemModal({
   categories,
+  errors,
   imagePreview,
   inputCls,
   item,
@@ -166,42 +167,58 @@ function AddItemModal({
               )}
             </div>
             <input type="file" accept="image/*" onChange={onFileChange} className="hidden" />
+            {errors.image && <p className="mt-2 text-xs font-medium text-red-500">{errors.image}</p>}
           </label>
 
           <div className="space-y-3">
-            <input
-              value={item.name}
-              onChange={(e) => onChange({ ...item, name: e.target.value })}
-              placeholder="Tên món *"
-              className={inputCls + ' w-full'}
-            />
-            <select
-              value={item.category}
-              onChange={(e) => onChange({ ...item, category: e.target.value })}
-              className={inputCls + ' w-full'}
-            >
-              <option value="">Chọn danh mục *</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <input
-              type="number"
-              value={item.price}
-              onChange={(e) => onChange({ ...item, price: e.target.value })}
-              placeholder="Giá (đ) *"
-              className={inputCls + ' w-full'}
-            />
-            <input
-              value={item.description}
-              onChange={(e) => onChange({ ...item, description: e.target.value })}
-              placeholder="Mô tả (tuỳ chọn)"
-              className={inputCls + ' w-full'}
-            />
-            <input
-              value={item.imageUrl}
-              onChange={(e) => onChange({ ...item, imageUrl: e.target.value })}
-              placeholder="Hoặc dán URL ảnh"
-              className={inputCls + ' w-full'}
-            />
+            <div>
+              <input
+                value={item.name}
+                onChange={(e) => onChange({ ...item, name: e.target.value })}
+                placeholder="Tên món *"
+                className={inputCls + ' w-full'}
+              />
+              {errors.name && <p className="mt-1.5 text-xs font-medium text-red-500">{errors.name}</p>}
+            </div>
+            <div>
+              <select
+                value={item.category}
+                onChange={(e) => onChange({ ...item, category: e.target.value })}
+                className={inputCls + ' w-full'}
+              >
+                <option value="">Chọn danh mục *</option>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              {errors.category && <p className="mt-1.5 text-xs font-medium text-red-500">{errors.category}</p>}
+            </div>
+            <div>
+              <input
+                type="number"
+                value={item.price}
+                onChange={(e) => onChange({ ...item, price: e.target.value })}
+                placeholder="Giá (đ) *"
+                className={inputCls + ' w-full'}
+              />
+              {errors.price && <p className="mt-1.5 text-xs font-medium text-red-500">{errors.price}</p>}
+            </div>
+            <div>
+              <input
+                value={item.description}
+                onChange={(e) => onChange({ ...item, description: e.target.value })}
+                placeholder="Mô tả (tuỳ chọn)"
+                className={inputCls + ' w-full'}
+              />
+            </div>
+            <div>
+              <input
+                value={item.imageUrl}
+                onChange={(e) => onChange({ ...item, imageUrl: e.target.value })}
+                placeholder="Hoặc dán URL ảnh"
+                className={inputCls + ' w-full'}
+              />
+              {errors.imageUrl && <p className="mt-1.5 text-xs font-medium text-red-500">{errors.imageUrl}</p>}
+            </div>
+            {errors.form && <p className="text-xs font-medium text-red-500">{errors.form}</p>}
             <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
               <input
                 type="checkbox"
@@ -245,6 +262,7 @@ export default function MenuSettings() {
   const [activeCategory, setActiveCategory] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [newItem, setNewItem] = useState(EMPTY_ITEM)
+  const [newItemErrors, setNewItemErrors] = useState({})
   const [showAddItem, setShowAddItem] = useState(false)
   const [newItemImage, setNewItemImage] = useState(null)
   const [newItemPreview, setNewItemPreview] = useState('')
@@ -346,19 +364,31 @@ export default function MenuSettings() {
   }
 
   const handleAddItem = async () => {
-    if (!selectedSetId) { toast('Chọn bộ menu trước.'); return }
-    if (!newItem.name || !newItem.category || !newItem.price) { toast('Nhập đủ tên, danh mục và giá.'); return }
+    const price = Number(newItem.price)
+    const errors = {}
+    if (!selectedSetId) errors.form = 'Chọn bộ menu trước khi thêm món.'
+    if (!newItem.name.trim()) errors.name = 'Nhập tên món.'
+    if (!newItem.category) errors.category = 'Chọn danh mục cho món.'
+    if (!newItem.price) errors.price = 'Nhập giá món.'
+    else if (!Number.isFinite(price) || price <= 0) errors.price = 'Giá phải lớn hơn 0.'
+    if (newItemImage && (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET)) {
+      errors.image = 'Chưa cấu hình Cloudinary. Bạn có thể dán URL ảnh hoặc cấu hình upload cloud.'
+    }
+
+    setNewItemErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
     setSavingItem(true)
     try {
       const imageUrl = newItemImage ? await uploadMenuImage(newItemImage) : newItem.imageUrl
-      await api.post(`/menu/sets/${selectedSetId}/items`, { ...newItem, imageUrl, price: Number(newItem.price) })
+      await api.post(`/menu/sets/${selectedSetId}/items`, { ...newItem, imageUrl, price })
       setNewItem(EMPTY_ITEM)
+      setNewItemErrors({})
       setNewItemImage(null)
       setShowAddItem(false)
       await refresh()
-      toast('Đã thêm món.')
     } catch (err) {
-      toast(err.message || 'Không thêm được món.')
+      setNewItemErrors({ form: err.message || 'Không thêm được món.' })
     } finally {
       setSavingItem(false)
     }
@@ -367,6 +397,7 @@ export default function MenuSettings() {
   const handleNewItemFile = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setNewItemErrors((prev) => ({ ...prev, image: '' }))
     setNewItemImage(file)
     setNewItemPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev)
@@ -418,17 +449,16 @@ export default function MenuSettings() {
     <div className="h-full overflow-hidden p-6 lg:p-8 fade-in flex flex-col gap-5">
       {/* ── Top bar ── */}
       <div className="flex items-center justify-between gap-3 flex-shrink-0">
-        <div>
-          <h2 className="font-bold text-slate-800">Quản lý menu</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Bộ menu · Danh mục · Món ăn</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {status && (
-            <span className="text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl">
-              ✓ {status}
-            </span>
-          )}
-        </div>
+          <div>
+            <h2 className="font-bold text-slate-800">Quản lý menu</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Bộ menu · Danh mục · Món ăn</p>
+            {status && (
+              <p className="text-xs font-medium text-emerald-700 mt-1">
+                {status}
+              </p>
+            )}
+          </div>
+        <div />
       </div>
 
       {/* ── Main layout: 3 cột ── */}
@@ -746,11 +776,15 @@ export default function MenuSettings() {
       {showAddItem && (
         <AddItemModal
           categories={categories}
+          errors={newItemErrors}
           imagePreview={newItemPreview}
           inputCls={inputCls}
           item={newItem}
           onChange={setNewItem}
-          onClose={() => setShowAddItem(false)}
+          onClose={() => {
+            setShowAddItem(false)
+            setNewItemErrors({})
+          }}
           onFileChange={handleNewItemFile}
           onSave={handleAddItem}
           saving={savingItem}
