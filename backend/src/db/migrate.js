@@ -79,6 +79,7 @@ async function migrate() {
       category      VARCHAR(100) NOT NULL,
       price         INT NOT NULL,
       description   TEXT,
+      image_url     TEXT,
       available     BOOLEAN DEFAULT true,
       sort_order    INT DEFAULT 0,
       created_at    TIMESTAMP DEFAULT NOW()
@@ -183,7 +184,8 @@ async function migrate() {
 
   await pool.query(`
     ALTER TABLE menu_items
-      ADD COLUMN IF NOT EXISTS menu_set_id INT REFERENCES menu_sets(id) ON DELETE SET NULL;
+      ADD COLUMN IF NOT EXISTS menu_set_id INT REFERENCES menu_sets(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS image_url TEXT;
 
     INSERT INTO menu_sets (tenant_id, name, type, description, is_active)
     SELECT t.id, 'Menu mặc định', 'regular', 'Bộ menu được tạo tự động từ dữ liệu hiện có', true

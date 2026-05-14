@@ -33,6 +33,7 @@ function getCategoryLabel(category) {
 }
 
 function getItemImage(item) {
+  if (item.imageUrl) return item.imageUrl
   const key = `${item.category} ${item.name}`.toLowerCase()
   if (key.includes('bia') || key.includes('uống') || key.includes('trà') || key.includes('nước')) {
     return 'https://images.unsplash.com/photo-1532635241-17e820acc59f?auto=format&fit=crop&w=240&q=80'

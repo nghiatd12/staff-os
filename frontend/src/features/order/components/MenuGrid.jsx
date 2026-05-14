@@ -16,8 +16,12 @@ export default function MenuGrid({ items, orderItems, onAdd, onChangeQty }) {
             }`}
           >
             {/* Thumbnail */}
-            <div className={`${item.color} h-28 flex items-center justify-center relative`}>
-              <span className="text-4xl group-hover:scale-110 transition-transform duration-200">🍴</span>
+            <div className={`${item.color || 'bg-slate-50'} h-28 flex items-center justify-center relative overflow-hidden`}>
+              {item.imageUrl ? (
+                <img src={item.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+              ) : (
+                <span className="text-4xl group-hover:scale-110 transition-transform duration-200">🍴</span>
+              )}
               {inOrder && (
                 <div className="absolute top-2 right-2 w-6 h-6 bg-brand-500 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-md">
                   {inOrder.qty}

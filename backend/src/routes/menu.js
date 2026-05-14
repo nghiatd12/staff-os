@@ -74,7 +74,7 @@ router.get('/', async (req, res) => {
     if (!menuSet) return res.status(404).json({ error: 'Không tìm thấy bộ menu' })
 
     const items = await queryAll(
-      `SELECT id, menu_set_id, name, category, price, description, available
+      `SELECT id, menu_set_id, name, category, price, description, available, image_url AS "imageUrl"
        FROM menu_items
        WHERE tenant_id = $1 AND menu_set_id = $2 AND available = true
        ORDER BY category, sort_order, name`,
@@ -188,7 +188,7 @@ router.get('/sets/:setId/items', authenticate, authorize('owner', 'manager'), as
     if (!set) return res.status(404).json({ error: 'Không tìm thấy bộ menu' })
 
     const items = await queryAll(
-      `SELECT id, menu_set_id, name, category, price, description, available, sort_order
+      `SELECT id, menu_set_id, name, category, price, description, available, image_url AS "imageUrl", sort_order
        FROM menu_items
        WHERE tenant_id = $1 AND menu_set_id = $2
        ORDER BY category, sort_order, name`,
@@ -203,7 +203,7 @@ router.get('/sets/:setId/items', authenticate, authorize('owner', 'manager'), as
 
 router.post('/sets/:setId/items', authenticate, authorize('owner', 'manager'), async (req, res) => {
   try {
-    const { name, category, price, description = '', available = true } = req.body
+    const { name, category, price, description = '', available = true, imageUrl = null, image_url = null } = req.body
     if (!name || !category || !price) return res.status(400).json({ error: 'Thiếu thông tin món' })
 
     const set = await queryOne(
@@ -213,10 +213,10 @@ router.post('/sets/:setId/items', authenticate, authorize('owner', 'manager'), a
     if (!set) return res.status(404).json({ error: 'Không tìm thấy bộ menu' })
 
     const { rows: [item] } = await query(
-      `INSERT INTO menu_items (tenant_id, menu_set_id, name, category, price, description, available)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO menu_items (tenant_id, menu_set_id, name, category, price, description, available, image_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [req.user.tenantId, req.params.setId, name, category, Number(price), description, available]
+      [req.user.tenantId, req.params.setId, name, category, Number(price), description, available, imageUrl || image_url || null]
     )
     res.status(201).json({ item })
   } catch (err) {
@@ -252,6 +252,7 @@ router.post('/sets/:setId/import', authenticate, authorize('owner', 'manager'), 
       const price = Number(raw.price)
       const description = String(raw.description || '').trim()
       const available = raw.available === undefined ? true : Boolean(raw.available)
+      const imageUrl = String(raw.imageUrl || raw.image_url || raw.image || '').trim() || null
 
       if (!name || !category || !Number.isFinite(price) || price <= 0) {
         skipped.push({ row: index + 2, name, reason: 'Thiếu tên, danh mục hoặc giá' })
@@ -259,10 +260,10 @@ router.post('/sets/:setId/import', authenticate, authorize('owner', 'manager'), 
       }
 
       const { rows: [item] } = await query(
-        `INSERT INTO menu_items (tenant_id, menu_set_id, name, category, price, description, available, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO menu_items (tenant_id, menu_set_id, name, category, price, description, available, sort_order, image_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
-        [req.user.tenantId, req.params.setId, name, category, Math.round(price), description, available, inserted.length]
+        [req.user.tenantId, req.params.setId, name, category, Math.round(price), description, available, inserted.length, imageUrl]
       )
       inserted.push(item)
     }
@@ -280,7 +281,7 @@ router.post('/sets/:setId/import', authenticate, authorize('owner', 'manager'), 
  */
 router.post('/', authenticate, authorize('owner', 'manager'), async (req, res) => {
   try {
-    const { name, category, price, description, menuSetId } = req.body
+    const { name, category, price, description, menuSetId, imageUrl = null, image_url = null } = req.body
     if (!name || !category || !price) return res.status(400).json({ error: 'Thiếu thông tin món' })
 
     const menuSet = menuSetId
@@ -289,9 +290,9 @@ router.post('/', authenticate, authorize('owner', 'manager'), async (req, res) =
     if (!menuSet) return res.status(404).json({ error: 'Không tìm thấy bộ menu' })
 
     const { rows: [item] } = await query(
-      `INSERT INTO menu_items (tenant_id, menu_set_id, name, category, price, description)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [req.user.tenantId, menuSet.id, name, category, price, description || '']
+      `INSERT INTO menu_items (tenant_id, menu_set_id, name, category, price, description, image_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [req.user.tenantId, menuSet.id, name, category, price, description || '', imageUrl || image_url || null]
     )
     res.status(201).json({ item })
   } catch (err) {
@@ -306,7 +307,8 @@ router.post('/', authenticate, authorize('owner', 'manager'), async (req, res) =
  */
 router.patch('/:id', authenticate, authorize('owner', 'manager'), async (req, res) => {
   try {
-    const { name, price, available, category, description, menuSetId } = req.body
+    const { name, price, available, category, description, menuSetId, imageUrl, image_url } = req.body
+    const nextImageUrl = imageUrl === undefined ? image_url : imageUrl
     const { rows: [item] } = await query(
       `UPDATE menu_items SET
         name = COALESCE($1, name),
@@ -314,9 +316,10 @@ router.patch('/:id', authenticate, authorize('owner', 'manager'), async (req, re
         available = COALESCE($3, available),
         category = COALESCE($4, category),
         description = COALESCE($5, description),
-        menu_set_id = COALESCE($6, menu_set_id)
-       WHERE id = $7 AND tenant_id = $8 RETURNING *`,
-      [name, price, available, category, description, menuSetId, req.params.id, req.user.tenantId]
+        menu_set_id = COALESCE($6, menu_set_id),
+        image_url = COALESCE($7, image_url)
+       WHERE id = $8 AND tenant_id = $9 RETURNING *`,
+      [name, price, available, category, description, menuSetId, nextImageUrl, req.params.id, req.user.tenantId]
     )
     if (!item) return res.status(404).json({ error: 'Không tìm thấy món' })
     res.json({ item })

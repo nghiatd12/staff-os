@@ -14,8 +14,10 @@ const MENU_TYPES = [
   { value: 'event',    label: 'Sự kiện' },
 ]
 
-const EMPTY_ITEM = { name: '', category: '', price: '', description: '', available: true }
+const EMPTY_ITEM = { name: '', category: '', price: '', description: '', imageUrl: '', available: true }
 const ITEMS_PER_PAGE = 10
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
 
 function formatPrice(v) {
   return new Intl.NumberFormat('vi-VN').format(Number(v || 0)) + 'đ'
@@ -54,6 +56,7 @@ function parseWorkbook(file) {
           category:    String(normalizeKey(row, ['Danh mục', 'Danh muc', 'category', 'Category'])).trim(),
           price:       parsePrice(normalizeKey(row, ['Giá', 'Gia', 'price', 'Price'])),
           description: String(normalizeKey(row, ['Mô tả', 'Mo ta', 'description', 'Description'])).trim(),
+          imageUrl:    String(normalizeKey(row, ['Ảnh', 'Anh', 'imageUrl', 'image_url', 'Image URL'])).trim(),
           available:   parseAvailable(normalizeKey(row, ['Đang bán', 'Dang ban', 'available', 'Available'])),
         })).filter((item) => item.name || item.category || item.price))
       } catch (err) { reject(err) }
@@ -61,6 +64,26 @@ function parseWorkbook(file) {
     reader.onerror = reject
     reader.readAsArrayBuffer(file)
   })
+}
+
+async function uploadMenuImage(file) {
+  if (!file) return ''
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error('Chưa cấu hình Cloudinary để upload ảnh.')
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET)
+  formData.append('folder', 'staff-os/menu')
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error?.message || 'Upload ảnh thất bại.')
+  return data.secure_url
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -101,6 +124,118 @@ function SetCard({ set, active, onClick, onActivate }) {
   )
 }
 
+function AddItemModal({
+  categories,
+  imagePreview,
+  inputCls,
+  item,
+  onChange,
+  onClose,
+  onFileChange,
+  onSave,
+  saving,
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+      <div className="w-full max-w-xl rounded-2xl bg-white shadow-2xl border border-slate-100 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">Thêm món</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Thông tin món và ảnh hiển thị trên menu</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-600"
+            aria-label="Đóng"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="p-5 grid grid-cols-1 md:grid-cols-[160px_1fr] gap-5">
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Ảnh món</span>
+            <div className="aspect-square rounded-2xl border border-dashed border-slate-200 bg-slate-50 overflow-hidden flex items-center justify-center cursor-pointer hover:border-emerald-300 transition-colors">
+              {imagePreview || item.imageUrl ? (
+                <img src={imagePreview || item.imageUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-center text-slate-400">
+                  <Upload size={22} className="mx-auto mb-2" />
+                  <span className="text-xs font-medium">Chọn ảnh</span>
+                </div>
+              )}
+            </div>
+            <input type="file" accept="image/*" onChange={onFileChange} className="hidden" />
+          </label>
+
+          <div className="space-y-3">
+            <input
+              value={item.name}
+              onChange={(e) => onChange({ ...item, name: e.target.value })}
+              placeholder="Tên món *"
+              className={inputCls + ' w-full'}
+            />
+            <select
+              value={item.category}
+              onChange={(e) => onChange({ ...item, category: e.target.value })}
+              className={inputCls + ' w-full'}
+            >
+              <option value="">Chọn danh mục *</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <input
+              type="number"
+              value={item.price}
+              onChange={(e) => onChange({ ...item, price: e.target.value })}
+              placeholder="Giá (đ) *"
+              className={inputCls + ' w-full'}
+            />
+            <input
+              value={item.description}
+              onChange={(e) => onChange({ ...item, description: e.target.value })}
+              placeholder="Mô tả (tuỳ chọn)"
+              className={inputCls + ' w-full'}
+            />
+            <input
+              value={item.imageUrl}
+              onChange={(e) => onChange({ ...item, imageUrl: e.target.value })}
+              placeholder="Hoặc dán URL ảnh"
+              className={inputCls + ' w-full'}
+            />
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
+              <input
+                type="checkbox"
+                checked={item.available}
+                onChange={(e) => onChange({ ...item, available: e.target.checked })}
+                className="accent-emerald-600"
+              />
+              Đang bán
+            </label>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-slate-100 bg-slate-50">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 hover:bg-white transition-colors"
+          >
+            Hủy
+          </button>
+          <button
+            onClick={onSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          >
+            <Plus size={15} />
+            {saving ? 'Đang lưu...' : 'Thêm món'}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function MenuSettings() {
@@ -110,6 +245,10 @@ export default function MenuSettings() {
   const [activeCategory, setActiveCategory] = useState('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [newItem, setNewItem] = useState(EMPTY_ITEM)
+  const [showAddItem, setShowAddItem] = useState(false)
+  const [newItemImage, setNewItemImage] = useState(null)
+  const [newItemPreview, setNewItemPreview] = useState('')
+  const [savingItem, setSavingItem] = useState(false)
   const [editingItemId, setEditingItemId] = useState(null)
   const [editingItem, setEditingItem] = useState(EMPTY_ITEM)
   const [customCategories, setCustomCategories] = useState(() => {
@@ -164,6 +303,12 @@ export default function MenuSettings() {
     if (currentPage > totalPages) setCurrentPage(totalPages)
   }, [currentPage, totalPages])
 
+  useEffect(() => {
+    return () => {
+      if (newItemPreview) URL.revokeObjectURL(newItemPreview)
+    }
+  }, [newItemPreview])
+
   const refresh = async (setId = selectedSetId) => {
     await loadSets(); await loadItems(setId); await fetchMenu()
   }
@@ -203,10 +348,30 @@ export default function MenuSettings() {
   const handleAddItem = async () => {
     if (!selectedSetId) { toast('Chọn bộ menu trước.'); return }
     if (!newItem.name || !newItem.category || !newItem.price) { toast('Nhập đủ tên, danh mục và giá.'); return }
-    await api.post(`/menu/sets/${selectedSetId}/items`, { ...newItem, price: Number(newItem.price) })
-    setNewItem(EMPTY_ITEM)
-    await refresh()
-    toast('Đã thêm món.')
+    setSavingItem(true)
+    try {
+      const imageUrl = newItemImage ? await uploadMenuImage(newItemImage) : newItem.imageUrl
+      await api.post(`/menu/sets/${selectedSetId}/items`, { ...newItem, imageUrl, price: Number(newItem.price) })
+      setNewItem(EMPTY_ITEM)
+      setNewItemImage(null)
+      setShowAddItem(false)
+      await refresh()
+      toast('Đã thêm món.')
+    } catch (err) {
+      toast(err.message || 'Không thêm được món.')
+    } finally {
+      setSavingItem(false)
+    }
+  }
+
+  const handleNewItemFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setNewItemImage(file)
+    setNewItemPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return URL.createObjectURL(file)
+    })
   }
 
   const handleSaveItem = async () => {
@@ -224,9 +389,9 @@ export default function MenuSettings() {
   const handleDownloadTemplate = () => {
     import('xlsx').then((XLSX) => {
       const rows = [
-        { 'Tên món': 'Gỏi cuốn', 'Danh mục': 'Đồ nhắm', 'Giá': 65000, 'Mô tả': 'Rau tươi, tôm thịt', 'Đang bán': 'Có' },
-        { 'Tên món': 'Bia Tiger', 'Danh mục': 'Đồ uống', 'Giá': 30000, 'Mô tả': 'Lon/chai', 'Đang bán': 'Có' },
-        { 'Tên món': 'Lẩu Thái', 'Danh mục': 'Nhậu chính', 'Giá': 280000, 'Mô tả': 'Size vừa', 'Đang bán': 'Có' },
+        { 'Tên món': 'Gỏi cuốn', 'Danh mục': 'Đồ nhắm', 'Giá': 65000, 'Mô tả': 'Rau tươi, tôm thịt', 'Ảnh': '', 'Đang bán': 'Có' },
+        { 'Tên món': 'Bia Tiger', 'Danh mục': 'Đồ uống', 'Giá': 30000, 'Mô tả': 'Lon/chai', 'Ảnh': '', 'Đang bán': 'Có' },
+        { 'Tên món': 'Lẩu Thái', 'Danh mục': 'Nhậu chính', 'Giá': 280000, 'Mô tả': 'Size vừa', 'Ảnh': '', 'Đang bán': 'Có' },
       ]
       const ws = XLSX.utils.json_to_sheet(rows)
       const wb = XLSX.utils.book_new()
@@ -366,47 +531,6 @@ export default function MenuSettings() {
             </div>
           </div>
 
-          {/* Thêm món */}
-          <div className="border-t border-slate-100 pt-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Thêm món</p>
-            <div className="space-y-2">
-              <input
-                value={newItem.name}
-                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                placeholder="Tên món *"
-                className={inputCls + ' w-full'}
-              />
-              <select
-                value={newItem.category}
-                onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-                className={inputCls + ' w-full'}
-              >
-                <option value="">Chọn danh mục *</option>
-                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <input
-                type="number"
-                value={newItem.price}
-                onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
-                placeholder="Giá (đ) *"
-                className={inputCls + ' w-full'}
-              />
-              <input
-                value={newItem.description}
-                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                placeholder="Mô tả (tuỳ chọn)"
-                className={inputCls + ' w-full'}
-              />
-              <button
-                onClick={handleAddItem}
-                disabled={!selectedSetId}
-                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-              >
-                <Plus size={14} />
-                Thêm món
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* ── Cột 3: Danh sách món ── */}
@@ -422,6 +546,14 @@ export default function MenuSettings() {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowAddItem(true)}
+                disabled={!selectedSetId}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+              >
+                <Plus size={13} />
+                Thêm món
+              </button>
               <select
                 value={importMode}
                 onChange={(e) => setImportMode(e.target.value)}
@@ -528,10 +660,20 @@ export default function MenuSettings() {
                         ) : (
                           <>
                             <td className="px-4 py-3">
-                              <p className="font-medium text-slate-800 leading-tight">{item.name}</p>
-                              {item.description && (
-                                <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[200px]">{item.description}</p>
-                              )}
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-11 h-11 rounded-xl bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center text-slate-300">
+                                  {item.imageUrl
+                                    ? <img src={item.imageUrl} alt="" className="w-full h-full object-cover" />
+                                    : <span className="text-lg">🍽️</span>
+                                  }
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-medium text-slate-800 leading-tight truncate">{item.name}</p>
+                                  {item.description && (
+                                    <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[220px]">{item.description}</p>
+                                  )}
+                                </div>
+                              </div>
                             </td>
                             <td className="px-4 py-3">
                               <span className="text-xs font-medium px-2 py-1 rounded-lg bg-slate-100 text-slate-600">
@@ -556,7 +698,7 @@ export default function MenuSettings() {
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
-                                  onClick={() => { setEditingItemId(item.id); setEditingItem({ name: item.name, category: item.category, price: item.price, description: item.description || '', available: item.available }) }}
+                                  onClick={() => { setEditingItemId(item.id); setEditingItem({ name: item.name, category: item.category, price: item.price, description: item.description || '', imageUrl: item.imageUrl || '', available: item.available }) }}
                                   className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
                                 >
                                   <Pencil size={13} />
@@ -600,6 +742,20 @@ export default function MenuSettings() {
           </div>
         </div>
       </div>
+
+      {showAddItem && (
+        <AddItemModal
+          categories={categories}
+          imagePreview={newItemPreview}
+          inputCls={inputCls}
+          item={newItem}
+          onChange={setNewItem}
+          onClose={() => setShowAddItem(false)}
+          onFileChange={handleNewItemFile}
+          onSave={handleAddItem}
+          saving={savingItem}
+        />
+      )}
     </div>
   )
 }

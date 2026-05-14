@@ -37,7 +37,7 @@ router.get('/:slug/table/:tableId', async (req, res) => {
 
     // Lấy menu active. Nếu tenant chưa migrate menu_sets thì fallback sang tất cả món.
     const items = await queryAll(
-      `SELECT id, name, category, price, description, menu_set_id
+      `SELECT id, name, category, price, description, image_url AS "imageUrl", menu_set_id
        FROM menu_items
        WHERE tenant_id = $1
          AND available = true
